@@ -63,9 +63,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-    const requestToken = csrfToken ?? token
-    if (requestToken !== null) {
-      headers.set('X-XSRF-TOKEN', requestToken)
+    if (csrfToken !== null) {
+      // The API endpoint returns the plain session token. Laravel expects
+      // that value in X-CSRF-TOKEN; X-XSRF-TOKEN is reserved for the
+      // encrypted cookie value.
+      headers.set('X-CSRF-TOKEN', csrfToken)
+    } else if (token !== null) {
+      headers.set('X-XSRF-TOKEN', token)
     }
   }
 
