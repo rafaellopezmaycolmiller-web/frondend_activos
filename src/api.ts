@@ -23,7 +23,11 @@ interface ApiErrorPayload {
   readonly errors?: Record<string, readonly string[]>
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+const configuredApiBase = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '')
+// Keep the hosted demo usable if Railway saves a wrapped/truncated VITE_API_URL.
+const API_BASE = configuredApiBase.startsWith('https://backendactivos-') && configuredApiBase !== 'https://backendactivos-production.up.railway.app'
+  ? 'https://backendactivos-production.up.railway.app'
+  : configuredApiBase
 
 export class ApiError extends Error {
   readonly status: number
