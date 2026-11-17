@@ -29,6 +29,8 @@ const API_BASE = configuredApiBase.startsWith('https://backendactivos-') && conf
   ? 'https://backendactivos-production.up.railway.app'
   : configuredApiBase
 
+let csrfToken: string | null = null
+
 export class ApiError extends Error {
   readonly status: number
   readonly errors: Record<string, readonly string[]>
@@ -60,8 +62,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set('Content-Type', 'application/json')
   }
 
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && token !== null) {
-    headers.set('X-XSRF-TOKEN', token)
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const requestToken = csrfToken ?? token
+    if (requestToken !== null) {
+      headers.set('X-XSRF-TOKEN', requestToken)
+    }
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -82,7 +87,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 async function initializeCsrf(): Promise<void> {
-  await request<null>('/sanctum/csrf-cookie')
+  const response = await request<{ readonly token: string }>('/api/v1/auth/csrf-token')
+  csrfToken = response.token
 }
 
 export async function currentUser(): Promise<User> {
