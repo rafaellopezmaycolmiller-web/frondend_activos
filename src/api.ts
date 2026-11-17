@@ -2,6 +2,7 @@ import type {
   Area,
   AreaInput,
   Asset,
+  AssetPage,
   AssetCategory,
   AssetLocation,
   AssetStatus,
@@ -21,6 +22,8 @@ interface ApiErrorPayload {
   readonly message?: string
   readonly errors?: Record<string, readonly string[]>
 }
+
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 export class ApiError extends Error {
   readonly status: number
@@ -57,7 +60,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set('X-XSRF-TOKEN', token)
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: 'include',
     headers,
@@ -214,14 +217,26 @@ export async function roles(): Promise<readonly Role[]> {
 }
 
 export async function auditEvents(): Promise<readonly AuditEvent[]> {
-  const response = await request<PaginatedResponse<AuditEvent>>('/api/v1/audit-events?per_page=25')
+  const response = await request<PaginatedResponse<AuditEvent>>('/api/v1/audit-events?per_page=100')
 
   return response.data
 }
 
-export async function assets(search = ''): Promise<readonly Asset[]> {
+export async function archiveAuditEvent(id: number, reason: string): Promise<void> {
+  await request(`/api/v1/audit-events/${id}/archive`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function assets(page = 1, search = ''): Promise<AssetPage> {
   const query = search === '' ? '' : `&search=${encodeURIComponent(search)}`
-  const response = await request<PaginatedResponse<Asset>>(`/api/v1/assets?per_page=50${query}`)
+  const response = await request<AssetPage>(`/api/v1/assets?per_page=12&page=${page}${query}`)
+  return response
+}
+
+export async function assetByCode(code: string): Promise<Asset> {
+  const response = await request<ResourceResponse<Asset>>(`/api/v1/assets/code/${encodeURIComponent(code)}`)
   return response.data
 }
 

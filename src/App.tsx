@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import QRCode from 'qrcode'
+import jsQR from 'jsqr'
 import {
+  archiveAuditEvent,
+  assetByCode,
   ApiError,
   assetCategories,
   assetLocations,
@@ -23,10 +27,23 @@ import {
 } from './api'
 import { AreaEditor, UserEditor } from './IdentityForms'
 import { AssetEditor } from './AssetForms'
-import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus, AuditEvent, DashboardMetrics, InventoryCampaign, MovementRequest, Role, User } from './types'
+import type { Area, Asset, AssetCategory, AssetLocation, AssetPage, AssetStatus, AuditEvent, DashboardMetrics, InventoryCampaign, MovementRequest, Role, User } from './types'
 
 type AuthView = 'login' | 'forgot' | 'mfa' | 'reset'
-type SectionKey = 'dashboard' | 'assets' | 'movements' | 'inventory' | 'users' | 'areas' | 'roles' | 'audit'
+type SectionKey = 'dashboard' | 'assets' | 'movements' | 'inventory' | 'users' | 'areas' | 'audit'
+
+function compactAreaName(area: { readonly code: string; readonly name: string } | null | undefined): string {
+  if (area === null || area === undefined) return 'No registrada'
+
+  const labels: Record<string, string> = {
+    PAT: 'Patrimonio',
+    LOG: 'Logística y Almacén',
+    TI: 'Tecnología de Información',
+    OCI: 'Órgano de Control',
+  }
+
+  return labels[area.code] ?? area.name
+}
 
 interface NavigationItem {
   readonly key: SectionKey
@@ -36,14 +53,13 @@ interface NavigationItem {
 }
 
 const navigation: readonly NavigationItem[] = [
-  { key: 'dashboard', label: 'Resumen', permission: 'dashboard.view', description: '' },
-  { key: 'assets', label: 'Activos', permission: 'assets.view', description: '' },
-  { key: 'movements', label: 'Movimientos', permission: 'movements.view', description: '' },
-  { key: 'inventory', label: 'Inventario', permission: 'inventory.view', description: '' },
-  { key: 'users', label: 'Usuarios', permission: 'users.view', description: '' },
-  { key: 'areas', label: 'Áreas', permission: 'areas.view', description: '' },
-  { key: 'roles', label: 'Roles', permission: 'roles.view', description: '' },
-  { key: 'audit', label: 'Auditoría', permission: 'audit.view', description: '' },
+  { key: 'dashboard', label: 'Resumen', permission: 'dashboard.view', description: 'Vista general del sistema' },
+  { key: 'assets', label: 'Activos', permission: 'assets.view', description: 'Registro y consulta de bienes' },
+  { key: 'movements', label: 'Movimientos', permission: 'movements.view', description: 'Traslados y entregas' },
+  { key: 'inventory', label: 'Inventario', permission: 'inventory.view', description: 'Verificación física' },
+  { key: 'users', label: 'Usuarios', permission: 'users.view', description: 'Cuentas institucionales' },
+  { key: 'areas', label: 'Áreas', permission: 'areas.view', description: 'Organización municipal' },
+  { key: 'audit', label: 'Auditoría', permission: 'audit.view', description: 'Trazabilidad de acciones' },
 ]
 
 export function navigationFor(user: Pick<User, 'permissions'>): readonly NavigationItem[] {
@@ -76,6 +92,20 @@ function Icon({ children, className = 'size-5' }: { readonly children: ReactNode
   )
 }
 
+function NavigationIcon({ section }: { readonly section: SectionKey }) {
+  const paths: Record<SectionKey, ReactNode> = {
+    dashboard: <><rect height="7" rx="1.5" width="7" x="3" y="3" /><rect height="7" rx="1.5" width="7" x="14" y="3" /><rect height="7" rx="1.5" width="7" x="3" y="14" /><rect height="7" rx="1.5" width="7" x="14" y="14" /></>,
+    assets: <><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4.5 7.5 7.5 4 7.5-4M12 11.5V21" /></>,
+    movements: <><path d="M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4" /></>,
+    inventory: <><rect height="17" rx="2" width="15" x="4.5" y="4" /><path d="M9 4V2.5h6V4M8 9h8M8 13h8M8 17h5" /></>,
+    users: <><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M18 9a3 3 0 0 1 0 6M22 20v-2a4 4 0 0 0-3-3.9" /></>,
+    areas: <><path d="M4 21V8l8-5 8 5v13M2 21h20M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3" /></>,
+    audit: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h3M9 17h2" /><circle cx="16" cy="15" r="3" /><path d="m18.3 17.3 2 2" /></>,
+  }
+
+  return <Icon className="size-[18px]">{paths[section]}</Icon>
+}
+
 function AuthLayout({
   title,
   subtitle,
@@ -90,18 +120,65 @@ function AuthLayout({
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3" href="#formulario-acceso">
         Saltar al formulario
       </a>
-      <div className="flex min-h-screen items-center justify-center">
-        <section className="flex min-h-screen items-center justify-center p-5 sm:p-10">
-          <div className="w-full max-w-[470px] rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_30px_80px_rgba(15,35,65,0.14)] sm:p-10">
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
+      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
+        <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-10 text-white lg:flex lg:flex-col xl:px-18 xl:py-14">
+          <div aria-hidden="true" className="auth-orbit auth-orbit-one" />
+          <div aria-hidden="true" className="auth-orbit auth-orbit-two" />
+
+          <header className="relative z-10 flex items-center gap-4">
+            <Logo />
+            <div>
+              <p className="text-xs font-black tracking-[0.18em] text-blue-100/70">MUNICIPALIDAD DISTRITAL</p>
+              <p className="mt-1 text-lg font-extrabold">Morales</p>
+            </div>
+          </header>
+
+          <div className="relative z-10 my-auto max-w-[610px] py-16">
+            <div className="mb-7 h-1 w-14 rounded-full bg-[#f5c84c]" />
+            <p className="text-xs font-black tracking-[0.22em] text-blue-100/65">CONTROL PATRIMONIAL</p>
+            <h1 className="mt-5 max-w-[570px] text-4xl font-black leading-[1.08] tracking-[-0.04em] xl:text-5xl">
+              Gestión clara de los activos municipales.
+            </h1>
+            <p className="mt-6 max-w-[550px] text-base leading-7 text-blue-100/75">
+              Centralice el registro, ubicación e historial de los bienes institucionales en una plataforma segura y trazable.
+            </p>
+
+            <div className="mt-10 grid max-w-[570px] gap-3 sm:grid-cols-3">
+              {[
+                ['01', 'Inventario centralizado'],
+                ['02', 'Trazabilidad de cambios'],
+                ['03', 'Acceso por funciones'],
+              ].map(([number, label]) => (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm" key={number}>
+                  <span className="text-[10px] font-black tracking-widest text-[#f5c84c]">{number}</span>
+                  <p className="mt-2 text-sm font-bold leading-5 text-blue-50">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <footer className="relative z-10 flex items-center gap-3 border-t border-white/10 pt-6 text-xs text-blue-100/55">
+            <Icon className="size-4"><path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9.5 12 1.6 1.6 3.7-4" /></Icon>
+            Plataforma de uso exclusivo para personal autorizado
+          </footer>
+        </section>
+
+        <section className="relative flex min-h-screen items-center justify-center p-5 sm:p-10 lg:bg-white lg:p-12">
+          <div className="auth-form-panel w-full max-w-[470px] rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_25px_70px_rgba(15,35,65,0.12)] sm:p-10 lg:rounded-none lg:border-0 lg:p-0 lg:shadow-none">
+            <div className="mb-9 flex items-center gap-3 lg:hidden">
               <Logo />
               <div>
-                <p className="font-extrabold text-[#102a56]">CCM Activos Morales</p>
+                <p className="text-[10px] font-black tracking-[0.14em] text-slate-400">MUNICIPALIDAD DISTRITAL</p>
+                <p className="mt-1 font-extrabold text-[#102a56]">Morales</p>
               </div>
             </div>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.035em] text-slate-950">{title}</h2>
-            <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+            <p className="text-[11px] font-black tracking-[0.18em] text-[#1e5ca8]">ACCESO INSTITUCIONAL</p>
+            <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] text-slate-950 sm:text-[2.15rem]">{title}</h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{subtitle}</p>
             <div className="mt-8" id="formulario-acceso">{children}</div>
+            <div className="mt-8 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-400">
+              ¿Necesita ayuda para ingresar? Comuníquese con el área de TI.
+            </div>
           </div>
         </section>
       </div>
@@ -117,6 +194,7 @@ function Field({
   autoComplete,
   inputMode,
   maxLength,
+  placeholder,
 }: {
   readonly label: string
   readonly type?: string
@@ -125,46 +203,73 @@ function Field({
   readonly autoComplete?: string
   readonly inputMode?: 'email' | 'numeric' | 'text'
   readonly maxLength?: number
+  readonly placeholder?: string
 }) {
+  const fieldId = useId()
+  const [revealed, setRevealed] = useState(false)
+  const isPassword = type === 'password'
+  const resolvedType = isPassword && revealed ? 'text' : type
+
+  const fieldIcon = type === 'email'
+    ? <Icon><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></Icon>
+    : isPassword
+      ? <Icon><rect height="10" rx="2" width="16" x="4" y="11" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Icon>
+      : <Icon><path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z" /></Icon>
+
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
-      {label}
-      <input
-        autoComplete={autoComplete}
-        className="h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-        inputMode={inputMode}
-        maxLength={maxLength}
-        onChange={(event) => onChange(event.target.value)}
-        required
-        type={type}
-        value={value}
-      />
-    </label>
+    <div className="grid gap-2">
+      <label className="text-sm font-bold text-slate-700" htmlFor={fieldId}>{label}</label>
+      <div className="relative">
+        <span className="pointer-events-none absolute inset-y-0 left-0 grid w-12 place-items-center text-slate-400">{fieldIcon}</span>
+        <input
+          autoComplete={autoComplete}
+          className={`h-[52px] w-full rounded-xl border border-slate-300 bg-slate-50 pl-12 font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100 ${isPassword ? 'pr-12' : 'pr-4'}`}
+          id={fieldId}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required
+          type={resolvedType}
+          value={value}
+        />
+        {isPassword && (
+          <button
+            aria-label={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-slate-400 transition hover:text-[#1e5ca8]"
+            onClick={() => setRevealed((current) => !current)}
+            type="button"
+          >
+            <Icon>{revealed ? <><path d="m3 3 18 18" /><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" /><path d="M9.8 4.2A10.8 10.8 0 0 1 12 4c5 0 9 4 10 8a11.8 11.8 0 0 1-2.1 4.1M6.2 6.2A11.7 11.7 0 0 0 2 12c1 4 5 8 10 8 1.7 0 3.3-.5 4.7-1.3" /></> : <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>}</Icon>
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
 function PrimaryButton({ children, busy }: { readonly children: ReactNode; readonly busy: boolean }) {
   return (
     <button
-      className="flex h-12 w-full items-center justify-center rounded-xl bg-[#163a73] px-5 text-sm font-extrabold text-white shadow-lg shadow-blue-950/15 transition hover:bg-[#102a56] disabled:cursor-wait disabled:opacity-65"
+      className="group flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#163a73] px-5 text-sm font-extrabold text-white shadow-lg shadow-blue-950/15 transition hover:-translate-y-0.5 hover:bg-[#102a56] hover:shadow-xl disabled:cursor-wait disabled:opacity-65 disabled:hover:translate-y-0"
       disabled={busy}
       type="submit"
     >
-      {busy ? 'Procesando…' : children}
+      {busy ? 'Procesando…' : <>{children}<Icon className="size-4 transition group-hover:translate-x-0.5"><path d="m9 5 7 7-7 7" /></Icon></>}
     </button>
   )
 }
 
-function LoginView({
+export function LoginView({
   onAuthenticated,
   onMfa,
   onForgot,
 }: {
   readonly onAuthenticated: (user: User) => void
-  readonly onMfa: (challengeId: string, expiresAt: string) => void
+  readonly onMfa: (challengeId: string, expiresAt: string, destinationHint: string) => void
   readonly onForgot: () => void
 }) {
-  const [email, setEmail] = useState('auditor@ccm.test')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -179,7 +284,7 @@ function LoginView({
       const result = await login(email, password, remember)
 
       if ('requires_mfa' in result) {
-        onMfa(result.challenge_id, result.expires_at)
+        onMfa(result.challenge_id, result.expires_at, result.destination_hint)
       } else {
         onAuthenticated(result)
       }
@@ -191,21 +296,21 @@ function LoginView({
   }
 
   return (
-    <AuthLayout title="Iniciar sesión" subtitle="Use su cuenta de acceso.">
+    <AuthLayout title="Bienvenido" subtitle="Ingrese con su cuenta institucional para acceder al control de activos municipales.">
       <form className="grid gap-5" onSubmit={submit}>
-        <Field autoComplete="username" inputMode="email" label="Correo de acceso" onChange={setEmail} type="email" value={email} />
-        <Field autoComplete="current-password" label="Contraseña" onChange={setPassword} type="password" value={password} />
+        <Field autoComplete="username" inputMode="email" label="Correo institucional" onChange={setEmail} placeholder="nombre@moralesmuni.gob.pe" type="email" value={email} />
+        <Field autoComplete="current-password" label="Contraseña" onChange={setPassword} placeholder="Ingrese su contraseña" type="password" value={password} />
         <div className="flex items-center justify-between gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input checked={remember} className="size-4 accent-[#163a73]" onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
+          <label className="flex items-center gap-2.5 text-sm text-slate-600">
+            <input checked={remember} className="size-4 rounded accent-[#163a73]" onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
             Recordar sesión
           </label>
-          <button className="text-sm font-bold text-[#1e4f97] hover:underline" onClick={onForgot} type="button">
-            Olvidé mi contraseña
+          <button className="text-right text-sm font-bold text-[#1e4f97] hover:underline" onClick={onForgot} type="button">
+            Recuperar acceso
           </button>
         </div>
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
-        <PrimaryButton busy={busy}>Ingresar</PrimaryButton>
+        <PrimaryButton busy={busy}>Ingresar al sistema</PrimaryButton>
       </form>
     </AuthLayout>
   )
@@ -214,11 +319,13 @@ function LoginView({
 function MfaView({
   challengeId,
   expiresAt,
+  destinationHint,
   onAuthenticated,
   onBack,
 }: {
   readonly challengeId: string
   readonly expiresAt: string
+  readonly destinationHint: string
   readonly onAuthenticated: (user: User) => void
   readonly onBack: () => void
 }) {
@@ -241,7 +348,7 @@ function MfaView({
   }
 
   return (
-    <AuthLayout title="Verifique su identidad" subtitle={`Ingrese el código de seis dígitos. Vence ${new Date(expiresAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}.`}>
+    <AuthLayout title="Verifique su identidad" subtitle={`Enviamos un código de verificación al ${destinationHint}. Ingréselo antes de las ${new Date(expiresAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}.`}>
       <form className="grid gap-5" onSubmit={submit}>
         <Field autoComplete="one-time-code" inputMode="numeric" label="Código de un solo uso" maxLength={6} onChange={(value) => setCode(value.replace(/\D/g, ''))} value={code} />
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
@@ -365,6 +472,10 @@ function ActionButton({ children, onClick }: { readonly children: ReactNode; rea
   return <button className="h-11 rounded-xl bg-[#163a73] px-5 text-sm font-black text-white shadow-lg shadow-blue-950/15 hover:bg-[#102a56]" onClick={onClick} type="button">{children}</button>
 }
 
+function initials(name: string): string {
+  return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+}
+
 function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpdate, onChanged }: {
   readonly records: readonly User[]
   readonly areas: readonly Area[]
@@ -376,26 +487,67 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
 }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [target, setTarget] = useState<User | null>(null)
+  const [search, setSearch] = useState('')
 
   function openEditor(record: User | null) {
     setTarget(record)
     setEditorOpen(true)
   }
 
+  const visibleRecords = records.filter((record) => [record.name, record.email, record.job_title, record.area?.name, ...record.roles.map((role) => role.name)].filter(Boolean).join(' ').toLowerCase().includes(search.trim().toLowerCase()))
+  const activeUsers = records.filter((record) => record.is_active).length
+  const representedAreas = new Set(records.map((record) => record.area?.id).filter((id): id is number => id !== undefined)).size
+
   return (
-    <div className="grid gap-5">
-      <SectionHeading action={canCreate ? <ActionButton onClick={() => openEditor(null)}>+ Registrar usuario</ActionButton> : undefined} description="Cuentas y permisos." title="Directorio de usuarios" />
-      <DataTable headers={['Persona', 'Área', 'Roles', 'Estado', ...(canUpdate ? ['Acción'] : [])]}>
-        {records.map((record) => (
-          <tr className="border-t border-slate-100" key={record.id}>
-            <td className="px-5 py-4"><strong className="block text-slate-900">{record.name}</strong><span className="text-xs text-slate-500">{record.email}</span></td>
-            <td className="px-5 py-4 text-sm text-slate-600">{record.area?.name ?? 'Sin asignar'}</td>
-            <td className="px-5 py-4 text-sm text-slate-600">{record.roles.map((role) => role.name).join(', ') || 'Sin rol'}</td>
-            <td className="px-5 py-4"><StatusBadge active={record.is_active} /></td>
-            {canUpdate && <td className="px-5 py-4"><button className="text-xs font-black text-[#1e4f97] hover:underline disabled:cursor-not-allowed disabled:text-slate-300" disabled={record.id === currentUserId} onClick={() => openEditor(record)} type="button">{record.id === currentUserId ? 'Sesión actual' : 'Editar'}</button></td>}
-          </tr>
-        ))}
-      </DataTable>
+    <div className="grid gap-6">
+      <SectionHeading action={canCreate ? <ActionButton onClick={() => openEditor(null)}>+ Registrar trabajador</ActionButton> : undefined} description="Personas autorizadas para ingresar y trabajar en el sistema." title="Usuarios del sistema" />
+
+      <section aria-label="Resumen de usuarios" className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Usuarios registrados', value: records.length, note: 'Cuentas creadas', tone: 'bg-blue-50 text-blue-700' },
+          { label: 'Cuentas activas', value: activeUsers, note: 'Con acceso habilitado', tone: 'bg-emerald-50 text-emerald-700' },
+          { label: 'Áreas representadas', value: representedAreas, note: 'Oficinas con usuarios', tone: 'bg-amber-50 text-amber-700' },
+        ].map((item) => <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={item.label}><span className={`grid size-11 place-items-center rounded-xl text-lg font-black ${item.tone}`}>{item.value}</span><div><h3 className="text-sm font-black text-slate-800">{item.label}</h3><p className="mt-0.5 text-xs text-slate-400">{item.note}</p></div></article>)}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <label className="relative block">
+          <span className="pointer-events-none absolute inset-y-0 left-0 grid w-11 place-items-center text-slate-400"><Icon className="size-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></Icon></span>
+          <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, perfil, correo o área" value={search} />
+        </label>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Directorio de usuarios">
+        {visibleRecords.map((record) => {
+          const isCurrent = record.id === currentUserId
+          return (
+            <article className="group flex min-h-72 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#174a86] to-[#0a2146] text-sm font-black text-white shadow-md shadow-blue-950/15">{initials(record.name)}</span>
+                  <div className="min-w-0"><h3 className="text-base font-black leading-5 text-[#0a2146]">{record.name}</h3><p className="mt-1 truncate text-xs text-slate-400">{record.job_title ?? 'Cargo no registrado'}</p></div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${record.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{record.is_active ? 'Activo' : 'Inactivo'}</span>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {record.roles.length > 0 ? record.roles.map((role) => <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] font-black text-[#174a86]" key={role.id}>{role.name}</span>) : <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-500">Sin perfil asignado</span>}
+              </div>
+
+              <dl className="mt-5 grid gap-3 border-t border-slate-100 pt-4 text-xs">
+                <div className="flex items-start gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-400"><Icon className="size-3.5"><path d="M4 21V8l8-5 8 5v13M2 21h20M9 12h6M9 16h6" /></Icon></span><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área</dt><dd className="mt-0.5 font-bold leading-5 text-slate-700">{record.area?.name ?? 'Sin área asignada'}</dd></div></div>
+                <div className="flex items-start gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-400"><Icon className="size-3.5"><rect height="14" rx="2" width="18" x="3" y="5" /><path d="m4 7 8 6 8-6" /></Icon></span><div className="min-w-0"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Correo institucional</dt><dd className="mt-0.5 break-all font-bold leading-5 text-slate-700">{record.email}</dd></div></div>
+              </dl>
+
+              <div className="mt-auto pt-5">
+                {canUpdate && !isCurrent && <button className="h-10 w-full rounded-xl border border-blue-100 bg-blue-50/60 text-xs font-black text-[#174a86] transition hover:border-blue-200 hover:bg-blue-100" onClick={() => openEditor(record)} type="button">Administrar usuario</button>}
+                {isCurrent && <div className="grid h-10 place-items-center rounded-xl border border-slate-100 bg-slate-50 text-xs font-bold text-slate-400">Esta es tu sesión actual</div>}
+              </div>
+            </article>
+          )
+        })}
+      </section>
+      {visibleRecords.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-700">No encontramos usuarios</p><p className="mt-1 text-sm text-slate-400">Prueba con otro nombre, perfil o área.</p></div>}
       {editorOpen && <UserEditor areas={areas} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} roles={roles} />}
     </div>
   )
@@ -410,69 +562,489 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
     setEditorOpen(true)
   }
 
+  const institution = records.find((record) => record.parent_id === null)
+  const operationalAreas = institution === undefined ? records : records.filter((record) => record.id !== institution.id)
+  const activeAreas = records.filter((record) => record.is_active).length
+
   return (
-    <div className="grid gap-5">
-      <SectionHeading action={canManage ? <ActionButton onClick={() => openEditor(null)}>+ Registrar área</ActionButton> : undefined} description="Estructura configurable sin eliminación física de registros." title="Organización municipal" />
-      <DataTable headers={['Código', 'Área municipal', 'Descripción', 'Estado', ...(canManage ? ['Acción'] : [])]}>
-        {records.map((record) => (
-          <tr className="border-t border-slate-100" key={record.id}>
-            <td className="px-5 py-4 text-xs font-black text-[#1e4f97]">{record.code}</td>
-            <td className="px-5 py-4 font-bold text-slate-900">{record.name}</td>
-            <td className="max-w-md px-5 py-4 text-sm text-slate-500">{record.description ?? 'Sin descripción'}</td>
-            <td className="px-5 py-4"><StatusBadge active={record.is_active} /></td>
-            {canManage && <td className="px-5 py-4"><button className="text-xs font-black text-[#1e4f97] hover:underline" onClick={() => openEditor(record)} type="button">Editar</button></td>}
-          </tr>
+    <div className="grid gap-6">
+      <SectionHeading action={canManage ? <ActionButton onClick={() => openEditor(null)}>+ Registrar área</ActionButton> : undefined} description="Oficinas que participan en la gestión y control de los bienes municipales." title="Áreas del sistema" />
+
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de áreas">
+        {[
+          { value: records.length, label: 'Registros organizacionales', note: 'Incluye la institución' },
+          { value: operationalAreas.length, label: 'Áreas operativas', note: 'Oficinas vinculadas' },
+          { value: activeAreas, label: 'Áreas activas', note: 'Disponibles para asignación' },
+        ].map((item) => <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={item.label}><strong className="text-2xl font-black text-[#174a86]">{item.value}</strong><h3 className="mt-1 text-sm font-black text-slate-800">{item.label}</h3><p className="mt-0.5 text-xs text-slate-400">{item.note}</p></article>)}
+      </section>
+
+      {institution && (
+        <article className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#0a2146] to-[#174a86] p-6 text-white shadow-lg shadow-blue-950/10">
+          <span aria-hidden="true" className="absolute -right-12 -top-16 size-48 rounded-full border-[28px] border-white/[0.04]" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-blue-100"><Icon className="size-7"><path d="M4 21V8l8-5 8 5v13M2 21h20M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3" /></Icon></span><div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">Institución principal · {institution.code}</p><h3 className="mt-1 text-xl font-black">{institution.name}</h3><p className="mt-1 text-sm text-blue-100/65">{operationalAreas.length} áreas operativas vinculadas al sistema</p></div></div>
+            {canManage && <button className="h-10 rounded-xl border border-white/15 bg-white/10 px-4 text-xs font-black text-white transition hover:bg-white/15" onClick={() => openEditor(institution)} type="button">Editar institución</button>}
+          </div>
+        </article>
+      )}
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Áreas operativas">
+        {operationalAreas.map((record) => (
+          <article className="group flex min-h-64 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
+            <div className="flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-xl bg-[#eaf2fb] text-[#174a86]"><Icon><path d="M4 21V8l8-5 8 5v13M2 21h20M8 12h3M13 12h3M8 16h3M13 16h3" /></Icon></span><div className="flex items-center gap-2"><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-500">{record.code}</span><span className={`size-2 rounded-full ${record.is_active ? 'bg-emerald-400' : 'bg-red-400'}`} title={record.is_active ? 'Área activa' : 'Área inactiva'} /></div></div>
+            <h3 className="mt-5 text-lg font-black leading-6 text-[#0a2146]">{record.name}</h3>
+            <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{record.description ?? 'Área vinculada a la gestión institucional de activos.'}</p>
+            <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4"><span className={`text-[11px] font-black ${record.is_active ? 'text-emerald-700' : 'text-red-700'}`}>{record.is_active ? 'Disponible para asignación' : 'Área inactiva'}</span>{canManage && <button className="text-xs font-black text-[#174a86] hover:underline" onClick={() => openEditor(record)} type="button">Editar</button>}</div>
+          </article>
         ))}
-      </DataTable>
+      </section>
       {editorOpen && <AreaEditor areas={records} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} />}
     </div>
   )
 }
 
-function RolesContent({ records }: { readonly records: readonly Role[] }) {
-  const labels: Record<string, string> = { view: 'Consultar', create: 'Registrar', update: 'Editar', manage: 'Administrar', assign: 'Asignar', upload: 'Cargar', request: 'Solicitar', approve: 'Aprobar', receive: 'Recibir', check: 'Verificar', export: 'Exportar' }
-  const moduleNames: Record<string, string> = { dashboard: 'Panel', users: 'Usuarios', roles: 'Roles', areas: 'Áreas', audit: 'Auditoría', assets: 'Activos', movements: 'Movimientos', custody: 'Custodia', inventory: 'Inventario', disposals: 'Bajas', locations: 'Ubicaciones', asset_categories: 'Catálogos', asset_statuses: 'Estados', asset_documents: 'Documentos' }
+type AuditCategory = 'assets' | 'access' | 'administration' | 'inventory'
+
+interface AuditPresentation {
+  readonly title: string
+  readonly category: AuditCategory
+  readonly categoryLabel: string
+  readonly detail: string
+}
+
+const auditEventLabels: Record<string, Omit<AuditPresentation, 'detail'>> = {
+  'auth.login.succeeded': { title: 'Inició sesión correctamente', category: 'access', categoryLabel: 'Acceso' },
+  'auth.login.failed': { title: 'Intento de acceso rechazado', category: 'access', categoryLabel: 'Seguridad' },
+  'auth.mfa.challenge_issued': { title: 'Solicitó un código de verificación', category: 'access', categoryLabel: 'Acceso' },
+  'auth.mfa.failed': { title: 'Ingresó un código de verificación incorrecto', category: 'access', categoryLabel: 'Seguridad' },
+  'auth.logout': { title: 'Cerró su sesión', category: 'access', categoryLabel: 'Acceso' },
+  'auth.password_reset.requested': { title: 'Solicitó recuperar su contraseña', category: 'access', categoryLabel: 'Seguridad' },
+  'auth.password_reset.completed': { title: 'Actualizó su contraseña', category: 'access', categoryLabel: 'Seguridad' },
+  'identity.user.created': { title: 'Registró una cuenta de trabajador', category: 'administration', categoryLabel: 'Usuarios' },
+  'identity.user.updated': { title: 'Actualizó una cuenta de trabajador', category: 'administration', categoryLabel: 'Usuarios' },
+  'organization.area.created': { title: 'Registró un área municipal', category: 'administration', categoryLabel: 'Áreas' },
+  'organization.area.updated': { title: 'Actualizó un área municipal', category: 'administration', categoryLabel: 'Áreas' },
+  'assets.asset.created': { title: 'Registró un activo', category: 'assets', categoryLabel: 'Activos' },
+  'assets.asset.updated': { title: 'Actualizó un activo', category: 'assets', categoryLabel: 'Activos' },
+  'assets.document.uploaded': { title: 'Adjuntó un archivo al activo', category: 'assets', categoryLabel: 'Activos' },
+  'movements.requested': { title: 'Solicitó trasladar un activo', category: 'assets', categoryLabel: 'Movimientos' },
+  'movements.approved': { title: 'Aprobó el traslado de un activo', category: 'assets', categoryLabel: 'Movimientos' },
+  'movements.rejected': { title: 'Rechazó el traslado de un activo', category: 'assets', categoryLabel: 'Movimientos' },
+  'movements.received': { title: 'Confirmó la recepción de un activo', category: 'assets', categoryLabel: 'Movimientos' },
+  'custody.assigned': { title: 'Asignó la custodia de un activo', category: 'assets', categoryLabel: 'Custodia' },
+  'inventory.campaign_created': { title: 'Creó una campaña de inventario', category: 'inventory', categoryLabel: 'Inventario' },
+  'inventory.campaign_started': { title: 'Inició una campaña de inventario', category: 'inventory', categoryLabel: 'Inventario' },
+  'inventory.campaign_closed': { title: 'Cerró una campaña de inventario', category: 'inventory', categoryLabel: 'Inventario' },
+  'inventory.check_recorded': { title: 'Verificó un activo en inventario', category: 'inventory', categoryLabel: 'Inventario' },
+  'disposals.requested': { title: 'Solicitó la baja de un activo', category: 'assets', categoryLabel: 'Bajas' },
+  'disposals.approved': { title: 'Aprobó la baja de un activo', category: 'assets', categoryLabel: 'Bajas' },
+  'disposals.rejected': { title: 'Rechazó la baja de un activo', category: 'assets', categoryLabel: 'Bajas' },
+}
+
+const auditFieldLabels: Record<string, string> = {
+  asset_code: 'código patrimonial',
+  inventory_code: 'código de inventario',
+  category_id: 'tipo de bien',
+  status_id: 'estado',
+  area_id: 'área',
+  location_id: 'ubicación',
+  name: 'nombre',
+  description: 'observaciones',
+  brand: 'marca',
+  model: 'modelo',
+  serial_number: 'número de serie',
+  acquisition_date: 'fecha de adquisición',
+  acquisition_value: 'valor de adquisición',
+  useful_life_years: 'vida útil',
+  is_active: 'vigencia',
+  document_number: 'documento de identidad',
+  job_title: 'cargo',
+  phone: 'teléfono',
+  email: 'correo',
+  mfa_required: 'verificación de acceso',
+}
+
+function changedFields(metadata: Record<string, unknown> | null): readonly string[] {
+  const before = metadata?.before
+  const after = metadata?.after
+  if (before === null || after === null || typeof before !== 'object' || typeof after !== 'object' || Array.isArray(before) || Array.isArray(after)) return []
+
+  return Object.keys(after).filter((field) => JSON.stringify((before as Record<string, unknown>)[field]) !== JSON.stringify((after as Record<string, unknown>)[field])).map((field) => auditFieldLabels[field] ?? field.replaceAll('_', ' '))
+}
+
+export function auditPresentation(record: AuditEvent): AuditPresentation {
+  const presentation = auditEventLabels[record.event] ?? { title: 'Registró una actividad en el sistema', category: 'administration' as const, categoryLabel: 'Sistema' }
+  const fields = changedFields(record.metadata)
+  const reason = typeof record.metadata?.reason === 'string' && record.metadata.reason !== 'credentials_or_account_status' ? record.metadata.reason : null
+  const documentType = typeof record.metadata?.document_type === 'string' ? record.metadata.document_type : null
+  const documentLabels: Record<string, string> = { photo: 'fotografía', technical_sheet: 'ficha técnica', invoice: 'comprobante', act: 'acta', other: 'archivo' }
+  const details = [
+    fields.length > 0 ? `Datos modificados: ${fields.join(', ')}.` : null,
+    reason !== null ? `Motivo: ${reason}` : null,
+    documentType !== null ? `Archivo agregado: ${documentLabels[documentType] ?? 'documento'}.` : null,
+  ].filter((item): item is string => item !== null)
+
+  return {
+    ...presentation,
+    detail: details.join(' ') || record.subject?.context || 'Acción registrada automáticamente por el sistema.',
+  }
+}
+
+function auditSubjectLabel(record: AuditEvent): string {
+  if (record.subject?.asset !== null && record.subject?.asset !== undefined) return 'Activo involucrado'
+  if (record.subject?.type === 'user') return 'Cuenta involucrada'
+  if (record.subject?.type === 'area') return 'Área involucrada'
+  if (record.subject?.type === 'inventory_campaign') return 'Campaña involucrada'
+  return 'Registro involucrado'
+}
+
+function AuditCategoryIcon({ category }: { readonly category: AuditCategory }) {
+  const paths: Record<AuditCategory, ReactNode> = {
+    assets: <><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4.5 7.5 7.5 4 7.5-4M12 11.5V21" /></>,
+    access: <><rect height="16" rx="3" width="14" x="5" y="4" /><path d="M9 11h6M12 8v6" /></>,
+    administration: <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M17 8v6M14 11h6" /></>,
+    inventory: <><rect height="16" rx="2" width="14" x="5" y="4" /><path d="M9 4.5h6V7H9zM9 11h6M9 15h4" /></>,
+  }
+  return <Icon className="size-5">{paths[category]}</Icon>
+}
+
+export function AuditContent({ records, canManage = false }: { readonly records: readonly AuditEvent[]; readonly canManage?: boolean }) {
+  const [filter, setFilter] = useState<'all' | AuditCategory>('assets')
+  const [search, setSearch] = useState('')
+  const [archiving, setArchiving] = useState<number | null>(null)
+  const categoryStyles: Record<AuditCategory, string> = {
+    assets: 'bg-blue-50 text-blue-700',
+    access: 'bg-amber-50 text-amber-700',
+    administration: 'bg-violet-50 text-violet-700',
+    inventory: 'bg-emerald-50 text-emerald-700',
+  }
+  const filters: readonly { key: 'all' | AuditCategory; label: string }[] = [
+    { key: 'all', label: 'Todos' },
+    { key: 'assets', label: 'Activos y movimientos' },
+    { key: 'inventory', label: 'Inventario' },
+    { key: 'administration', label: 'Usuarios y áreas' },
+    { key: 'access', label: 'Accesos' },
+  ]
+  const visibleRecords = records.filter((record) => {
+    const presentation = auditPresentation(record)
+    const matchesFilter = filter === 'all' || presentation.category === filter
+    const searchable = [presentation.title, record.actor?.name, record.actor?.job_title, record.actor?.area?.name, ...(record.actor?.roles.map((role) => role.name) ?? []), record.area?.name, record.subject?.label, record.subject?.reference].filter(Boolean).join(' ').toLowerCase()
+    return matchesFilter && searchable.includes(search.trim().toLowerCase())
+  })
+
+  async function archive(record: AuditEvent) {
+    const confirmed = window.confirm('¿Eliminar este evento del historial? Esta acción es solo para corregir un registro accidental.')
+    if (!confirmed) return
+    setArchiving(record.id)
+    try {
+      await archiveAuditEvent(record.id, 'Eliminado por el administrador de TI')
+      window.location.reload()
+    } finally {
+      setArchiving(null)
+    }
+  }
+
   return (
     <div className="grid gap-6">
-      <SectionHeading description="Cada rol define qué puede consultar, registrar o aprobar dentro del alcance asignado." title="Matriz de roles y permisos" />
-      <div className="grid gap-5 xl:grid-cols-2">
-      {records.map((record) => (
-        <article className="group overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
-          <div className="border-b border-slate-100 bg-gradient-to-r from-[#0a2146] to-[#163a73] px-6 py-5 text-white">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-black tracking-[0.18em] text-blue-200">{record.code.toUpperCase()}</p><h3 className="mt-2 text-xl font-black tracking-tight">{record.name}</h3></div>{record.is_system && <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-bold text-blue-100">ROL DEL SISTEMA</span>}</div>
-            <p className="mt-3 text-sm leading-5 text-blue-100/70">{record.description ?? 'Rol y permisos.'}</p>
+      <SectionHeading description="Consulta quién realizó cada acción, sobre qué registro y desde qué perfil o área." title="Historial del sistema" />
+
+      <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <label className="relative block">
+          <span className="pointer-events-none absolute inset-y-0 left-0 grid w-11 place-items-center text-slate-400"><Icon className="size-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></Icon></span>
+          <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por trabajador, activo, código, perfil o área" value={search} />
+        </label>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar historial">
+          {filters.map((item) => <button className={`rounded-xl px-4 py-2 text-xs font-black transition ${filter === item.key ? 'bg-[#174a86] text-white shadow-md shadow-blue-950/10' : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-200 hover:text-[#174a86]'}`} key={item.key} onClick={() => setFilter(item.key)} type="button">{item.label}</button>)}
+        </div>
+      </section>
+
+      <section className="grid gap-4" aria-label="Eventos del historial">
+        {visibleRecords.map((record) => {
+          const presentation = auditPresentation(record)
+          const roleNames = record.actor?.roles.map((role) => role.name).join(', ')
+          return (
+            <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_4px_14px_rgba(15,35,65,0.035)]" key={record.id}>
+              <div className="flex flex-col gap-2 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${categoryStyles[presentation.category]}`}><AuditCategoryIcon category={presentation.category} /></span>
+                  <div className="min-w-0">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${categoryStyles[presentation.category]}`}>{presentation.categoryLabel}</span>
+                    <h3 className="mt-1 text-sm font-black text-[#0a2146]">{presentation.title}</h3>
+                    <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{presentation.detail}</p>
+                  </div>
+                </div>
+                <time className="shrink-0 text-xs font-bold text-slate-400" dateTime={record.occurred_at}>{new Date(record.occurred_at).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}</time>
+              </div>
+
+              <div className="grid gap-2 p-3 lg:grid-cols-[minmax(210px,0.75fr)_minmax(0,1.9fr)]">
+                <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] text-blue-500">{auditSubjectLabel(record)}</span>
+                  <strong className="mt-1 block truncate text-xs font-black text-[#0a2146]" title={record.subject?.label ?? 'Sin registro relacionado'}>{record.subject?.label ?? 'Sin registro relacionado'}</strong>
+                  {record.subject?.reference && <span className="mt-0.5 block truncate text-[11px] font-bold text-blue-700">{record.subject.reference}</span>}
+                </div>
+                <dl className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 sm:grid-cols-3">
+                  <div><dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Responsable</dt><dd className="mt-1 text-xs font-bold text-slate-800">{record.actor?.name ?? 'Sistema / sin identificar'}</dd></div>
+                  <div><dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Perfil</dt><dd className="mt-1 text-xs font-bold text-slate-800">{roleNames || record.actor?.job_title || 'Sin sesión iniciada'}</dd>{roleNames && record.actor?.job_title && <span className="mt-1 block text-[11px] text-slate-400">{record.actor.job_title}</span>}</div>
+                  <div><dt className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Área</dt><dd className="mt-1 text-xs font-bold text-slate-800">{record.actor?.area?.name ?? record.area?.name ?? 'Sin área asociada'}</dd>{record.area && record.actor?.area?.id !== record.area.id && <span className="mt-1 block text-[11px] text-slate-400">Registro: {record.area.name}</span>}</div>
+                </dl>
+              </div>
+              {canManage && <div className="flex justify-end border-t border-slate-100 px-3 py-1.5"><button className="text-[10px] font-black text-slate-400 transition hover:text-rose-600 disabled:opacity-50" disabled={archiving === record.id} onClick={() => void archive(record)} type="button">{archiving === record.id ? 'Eliminando…' : 'Eliminar del historial'}</button></div>}
+            </article>
+          )
+        })}
+        {visibleRecords.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-700">{filter === 'assets' && search.trim() === '' ? 'Aún no hay acciones registradas sobre activos' : 'No se encontraron actividades'}</p><p className="mx-auto mt-1 max-w-2xl text-sm leading-6 text-slate-400">{filter === 'assets' && search.trim() === '' ? 'Cuando un trabajador registre, edite, traslade o dé de baja un activo, aquí aparecerán el bien involucrado, el responsable, su perfil y su área.' : 'Prueba con otro filtro o término de búsqueda.'}</p></div>}
+      </section>
+    </div>
+  )
+}
+
+function AssetVisualIcon({ record }: { readonly record: Asset }) {
+  const photo = record.documents?.find((document) => document.document_type === 'photo')
+  if (photo !== undefined) return <img alt={`Fotografía de ${record.name}`} className="size-full object-cover" src={photo.url} />
+
+  const descriptor = `${record.name} ${record.category.name}`.toLowerCase()
+  if (descriptor.includes('comput') || descriptor.includes('informát') || descriptor.includes('equipo')) {
+    return <Icon className="size-8"><rect height="12" rx="2" width="18" x="3" y="4" /><path d="M8 20h8M12 16v4" /></Icon>
+  }
+  if (descriptor.includes('mueble') || descriptor.includes('mesa') || descriptor.includes('silla')) {
+    return <Icon className="size-8"><path d="M6 11h12v6H6zM8 17v4M16 17v4M8 11V6h8v5" /></Icon>
+  }
+  return <Icon className="size-8"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4.5 7.5 7.5 4 7.5-4M12 11.5V21" /></Icon>
+}
+
+function AssetQr({ record }: { readonly record: Asset }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const qrValue = `${window.location.origin}/activos/${encodeURIComponent(record.asset_code)}`
+
+  useEffect(() => {
+    if (canvasRef.current !== null) void QRCode.toCanvas(canvasRef.current, qrValue, { width: 180, margin: 2, color: { dark: '#0a2146', light: '#ffffff' } })
+  }, [qrValue])
+
+  function download() {
+    if (canvasRef.current === null) return
+    const link = document.createElement('a')
+    link.download = `QR-${record.asset_code}.png`
+    link.href = canvasRef.current.toDataURL('image/png')
+    link.click()
+  }
+
+  return <div className="grid justify-items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Identificador QR</p><canvas aria-label={`Código QR de ${record.name}`} ref={canvasRef} /><p className="text-xs font-black text-[#174a86]">{record.asset_code}</p><button className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-black text-[#174a86] hover:bg-blue-50" onClick={download} type="button">Descargar QR</button></div>
+}
+
+function QrScanner({ onClose, onDetected }: { readonly onClose: () => void; readonly onDetected: (value: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [message, setMessage] = useState('Apunte la cámara al código QR del activo.')
+  const [manualCode, setManualCode] = useState('')
+
+  useEffect(() => {
+    let stopped = false
+    let stream: MediaStream | null = null
+    const detectorConstructor = (window as unknown as { BarcodeDetector?: new (options?: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<readonly { rawValue: string }[]> } }).BarcodeDetector
+
+    async function start() {
+    if (videoRef.current === null || !navigator.mediaDevices?.getUserMedia) {
+        setMessage('La cámara no está disponible. También puede ingresar el código manualmente.')
+        return
+      }
+      try {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        }
+        if (stopped || videoRef.current === null) return
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+        const detector = detectorConstructor === undefined ? null : new detectorConstructor({ formats: ['qr_code'] })
+        const scan = async () => {
+          if (stopped || videoRef.current === null) return
+          let rawValue: string | undefined
+          if (detector !== null) {
+            const results = await detector.detect(videoRef.current).catch(() => [])
+            rawValue = results[0]?.rawValue
+          } else if (canvasRef.current !== null && videoRef.current.videoWidth > 0) {
+            const canvas = canvasRef.current
+            canvas.width = videoRef.current.videoWidth
+            canvas.height = videoRef.current.videoHeight
+            const context = canvas.getContext('2d', { willReadFrequently: true })
+            context?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+            const image = context?.getImageData(0, 0, canvas.width, canvas.height)
+            rawValue = image === undefined ? undefined : jsQR(image.data, image.width, image.height)?.data
+          }
+          if (rawValue) {
+            const value = decodeURIComponent(rawValue.split('/').pop() ?? rawValue)
+            onDetected(value)
+            return
+          }
+          window.setTimeout(() => void scan(), 400)
+        }
+        void scan()
+      } catch {
+        setMessage('No se pudo acceder a la cámara. Puede ingresar el código manualmente.')
+      }
+    }
+    void start()
+    return () => { stopped = true; stream?.getTracks().forEach((track) => track.stop()) }
+  }, [onDetected])
+
+  return <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog"><div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-black text-[#0a2146]">Escanear activo</h2><button className="grid size-9 place-items-center rounded-lg bg-slate-100 text-lg font-bold" onClick={onClose} type="button">×</button></div><video aria-label="Vista de la cámara para escanear QR" autoPlay className="mt-4 aspect-square w-full rounded-xl bg-slate-950 object-cover" muted playsInline ref={videoRef} /><canvas className="hidden" ref={canvasRef} /><p className="mt-3 text-center text-xs font-semibold text-slate-500">{message}</p><div className="mt-4 flex gap-2"><input className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm" onChange={(event) => setManualCode(event.target.value)} placeholder="Código patrimonial" value={manualCode} /><button className="h-10 rounded-lg bg-[#174a86] px-3 text-xs font-black text-white disabled:opacity-40" disabled={manualCode.trim() === ''} onClick={() => onDetected(manualCode.trim())} type="button">Buscar</button></div></div></div>
+}
+
+function AssetDetails({ record, onClose, onEdit }: { readonly record: Asset; readonly onClose: () => void; readonly onEdit: () => void }) {
+  const photo = record.documents?.find((document) => document.document_type === 'photo')
+
+  return (
+    <div aria-modal="true" className="fixed inset-0 z-50 grid overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="dialog">
+      <div className="m-auto w-full max-w-4xl overflow-hidden rounded-[26px] bg-[#f4f7fb] shadow-2xl">
+        <header className="flex items-start justify-between gap-4 bg-gradient-to-r from-[#0a2146] to-[#174a86] px-6 py-5 text-white sm:px-8">
+          <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-100/70">Ficha detallada del activo</p><h2 className="mt-2 text-2xl font-black">{record.name}</h2><p className="mt-1 text-xs font-bold text-blue-100">{record.asset_code}</p></div>
+          <button aria-label="Cerrar" className="grid size-10 place-items-center rounded-xl bg-white/10 text-xl font-bold transition hover:bg-white/20" onClick={onClose} type="button">×</button>
+        </header>
+        <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)]">
+          <div className="grid content-start gap-4"><div className="aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100">{photo === undefined ? <div className="grid size-full place-items-center bg-gradient-to-br from-[#0a2146] via-[#174a86] to-[#2d6bb5] text-white"><AssetVisualIcon record={record} /></div> : <img alt={`Fotografía de ${record.name}`} className="size-full object-contain" src={photo.url} />}</div><AssetQr record={record} /></div>
+          <div className="grid content-start gap-4">
+            <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-3 py-1 text-[10px] font-black ${record.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{record.is_active ? 'Activo vigente' : 'Activo inactivo'}</span><span className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-700"><span className={`size-2 rounded-full ${record.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{record.status.name}</span></div>
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Identificación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código patrimonial</dt><dd className="mt-1 text-sm font-black text-[#0a2146]">{record.asset_code}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tipo de bien</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.category.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">N.° de serie</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.serial_number ?? 'No registrado'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código de inventario</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.inventory_code ?? 'No registrado'}</dd></div></dl></div>
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Asignación y ubicación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área que registró</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.registered_area?.name ?? 'No registrada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área designada</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.area.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ubicación física</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.location?.name ?? 'No especificada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Marca y modelo</dt><dd className="mt-1 text-sm font-bold text-slate-700">{[record.brand, record.model].filter(Boolean).join(' · ') || 'No registrados'}</dd></div></dl></div>
+            {record.description && <div className="rounded-2xl border border-slate-200 bg-white p-5"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Observaciones</dt><dd className="mt-2 text-sm leading-6 text-slate-600">{record.description}</dd></div>}
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><button className="h-10 rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-200" onClick={onClose} type="button">Cerrar</button><button className="h-10 rounded-xl bg-[#174a86] px-5 text-sm font-black text-white transition hover:bg-[#0f376a]" onClick={onEdit} type="button">Editar activo</button></div>
           </div>
-          <div className="px-6 py-5"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Facultades asignadas</span><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{record.permissions.length} permisos</span></div><div className="flex flex-wrap gap-2">{record.permissions.map((permission) => { const [module, action] = permission.split('.'); const moduleLabel = moduleNames[module ?? ''] ?? module ?? 'Módulo'; const actionLabel = labels[action ?? ''] ?? action ?? 'Acceso'; return <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700" key={permission}><span className="size-1.5 rounded-full bg-emerald-400" />{moduleLabel} · {actionLabel}</span> })}</div>
-          </div>
-        </article>
-      ))}
+        </div>
       </div>
     </div>
   )
 }
 
-function AuditContent({ records }: { readonly records: readonly AuditEvent[] }) {
-  return (
-    <DataTable headers={['Evento', 'Actor', 'Área', 'Fecha']}>
-      {records.map((record) => (
-        <tr className="border-t border-slate-100" key={record.id}>
-          <td className="px-5 py-4"><code className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{record.event}</code></td>
-          <td className="px-5 py-4 text-sm text-slate-600">{record.actor?.name ?? 'Sistema / no autenticado'}</td>
-          <td className="px-5 py-4 text-sm text-slate-600">{record.area?.name ?? 'Sin área'}</td>
-          <td className="px-5 py-4 text-xs text-slate-500">{new Date(record.occurred_at).toLocaleString('es-PE')}</td>
-        </tr>
-      ))}
-    </DataTable>
-  )
-}
-
-function AssetsContent({ records, areas, categories, statuses, locations, canCreate, canUpdate, canUpload, onChanged }: { readonly records: readonly Asset[]; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void }) {
+function AssetsContent({ records, pagination, areas, categories, statuses, locations, registeredAreaName, canCreate, canUpdate, canUpload, onChanged, onPageChange }: { readonly records: readonly Asset[]; readonly pagination: AssetPage['meta']; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly registeredAreaName: string | null; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void; readonly onPageChange: (page: number) => void }) {
   const [editorOpen, setEditorOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [target, setTarget] = useState<Asset | null>(null)
   const [search, setSearch] = useState('')
-  function openEditor(record: Asset | null) { setTarget(record); setEditorOpen(true) }
+
+  const handleQrDetected = useCallback(async (value: string) => {
+    try {
+      const asset = await assetByCode(value)
+      setTarget(asset)
+      setDetailsOpen(true)
+      setScannerOpen(false)
+    } catch {
+      setSearch(value)
+      setScannerOpen(false)
+    }
+  }, [])
+
+  function openEditor(record: Asset | null) {
+    setTarget(record)
+    setDetailsOpen(false)
+    setEditorOpen(true)
+  }
+
+  function openDetails(record: Asset) {
+    setTarget(record)
+    setDetailsOpen(true)
+  }
+
   const visibleRecords = records.filter((record) => `${record.asset_code} ${record.name} ${record.serial_number ?? ''} ${record.category.name}`.toLowerCase().includes(search.toLowerCase()))
-  return <div className="grid gap-6"><div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#1e4f97]">EQUIPOS Y MOBILIARIO MUNICIPAL</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Equipos y mobiliario</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">Consulta fichas, evidencia fotográfica, ubicación y versiones de cada equipo o mueble registrado.</p></div>{canCreate && <button className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#163a73] px-6 text-sm font-black text-white shadow-xl shadow-blue-950/15 transition hover:-translate-y-0.5 hover:bg-[#102a56]" onClick={() => openEditor(null)} type="button"><span className="text-xl leading-none">+</span> Registrar equipo o mueble</button>}</div><section className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className="text-xs font-bold text-slate-500">Total registrados</span><strong className="mt-2 block text-3xl font-black text-slate-950">{records.length}</strong></div><div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5"><span className="text-xs font-bold text-emerald-700">Activos vigentes</span><strong className="mt-2 block text-3xl font-black text-emerald-800">{records.filter((record) => record.is_active).length}</strong></div><div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5"><span className="text-xs font-bold text-blue-700">Con número de serie</span><strong className="mt-2 block text-3xl font-black text-blue-900">{records.filter((record) => record.serial_number).length}</strong></div></section><div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center"><div className="relative flex-1"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, nombre, serie o categoría…" value={search} /></div><span className="text-xs font-bold text-slate-400">{visibleRecords.length} resultado(s)</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visibleRecords.map((record) => <article className="group overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl" key={record.id}><div className="flex h-28 items-center justify-between bg-gradient-to-br from-[#eaf2fb] to-[#f8fbff] px-6"><div className="grid size-16 place-items-center rounded-2xl bg-white text-2xl shadow-sm">▣</div><span className={`rounded-full px-3 py-1 text-xs font-black ${record.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{record.is_active ? 'Vigente' : 'Inactivo'}</span></div><div className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black tracking-[0.15em] text-[#1e4f97]">{record.asset_code}</p><h3 className="mt-1 text-lg font-black text-slate-950">{record.name}</h3></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">V{record.current_version}</span></div><div className="mt-4 grid gap-2 text-xs text-slate-500"><div className="flex justify-between"><span>Categoría</span><strong className="text-slate-700">{record.category.name}</strong></div><div className="flex justify-between"><span>Área</span><strong className="text-slate-700">{record.area.code}</strong></div><div className="flex justify-between"><span>Serie</span><strong className="text-slate-700">{record.serial_number ?? 'No registrada'}</strong></div></div>{canUpdate && <button className="mt-5 w-full rounded-xl border border-slate-200 py-2.5 text-xs font-black text-[#1e4f97] transition hover:border-blue-200 hover:bg-blue-50" onClick={() => openEditor(record)} type="button">Ver / editar ficha</button>}</div></article>)}</div>{visibleRecords.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><p className="text-lg font-black text-slate-800">No encontramos activos</p><p className="mt-2 text-sm text-slate-500">Prueba otra búsqueda o registra el primer equipo o mueble.</p></div>}{editorOpen && <AssetEditor areas={areas} canUpload={canUpload} categories={categories} locations={locations} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} statuses={statuses} />}</div>
+
+  const statusTone: Record<string, string> = {
+    OPERATIVO: 'bg-emerald-500',
+    MANTENIMIENTO: 'bg-amber-400',
+    BAJA_PROPUESTA: 'bg-orange-500',
+    BAJA: 'bg-rose-500',
+  }
+
+  const summary = [
+    { label: 'Total registrados', value: records.length, icon: <><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4.5 7.5 7.5 4 7.5-4M12 11.5V21" /></> },
+    { label: 'Activos vigentes', value: records.filter((record) => record.is_active).length, icon: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></> },
+    { label: 'Con número de serie', value: records.filter((record) => record.serial_number).length, icon: <><rect height="14" rx="2" width="18" x="3" y="5" /><path d="M7 9h2M12 9h5M7 13h10M7 16h6" /></> },
+  ]
+
+  return (
+    <div className="grid gap-6">
+      <section aria-label="Resumen de activos" className="grid gap-4 sm:grid-cols-3">
+        {summary.map((item) => (
+          <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,35,65,0.05)]" key={item.label}>
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#eaf2fb] text-[#174a86]"><Icon>{item.icon}</Icon></span>
+            <div><span className="text-xs font-bold text-slate-500">{item.label}</span><strong className="mt-1 block text-2xl font-black text-[#0a2146]">{item.value}</strong></div>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-black text-slate-900">Bienes registrados</h2>
+            <p className="mt-1 text-xs text-slate-500">Consulta y administra los equipos y muebles municipales.</p>
+          </div>
+          {canCreate && (
+            <div className="flex flex-wrap justify-end gap-2"><button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-black text-[#174a86] transition hover:bg-blue-100" onClick={() => setScannerOpen(true)} type="button"><Icon className="size-4"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2" /><path d="M8 8h8v8H8z" /></Icon>Escanear QR</button><button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#174a86] px-5 text-sm font-black text-white shadow-lg shadow-blue-950/15 transition hover:-translate-y-0.5 hover:bg-[#0f376a]" onClick={() => openEditor(null)} type="button">
+              <Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>
+              Registrar equipo o mueble
+            </button></div>
+          )}
+        </div>
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute inset-y-0 left-0 grid w-11 place-items-center text-slate-400"><Icon className="size-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></Icon></span>
+            <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, nombre, serie o categoría" value={search} />
+          </div>
+          <span className="whitespace-nowrap text-xs font-bold text-slate-400">{visibleRecords.length} resultado(s)</span>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Fichas de activos">
+        {visibleRecords.map((record) => (
+          <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
+            <div className="grid gap-3 p-2.5">
+              {(() => {
+                const photo = record.documents?.find((document) => document.document_type === 'photo')
+
+                return photo === undefined ? (
+                  <div className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-[#0a2146] via-[#174a86] to-[#2d6bb5] text-white">
+                    <span aria-hidden="true" className="absolute -right-8 -top-8 size-28 rounded-full border-[18px] border-white/[0.06]" />
+                    <span aria-hidden="true" className="absolute -bottom-5 -left-5 size-20 rounded-full bg-amber-300/10" />
+                    <div className="relative text-center"><span className="mx-auto grid size-16 place-items-center rounded-2xl border border-white/15 bg-white/10 shadow-lg"><AssetVisualIcon record={record} /></span><span className="mt-3 block text-[10px] font-black tracking-[0.16em] text-blue-100">{record.asset_code}</span></div>
+                  </div>
+                ) : (
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100">
+                    <img alt={`Fotografía de ${record.name}`} className="absolute inset-0 size-full object-contain" src={photo.url} />
+                  </div>
+                )
+              })()}
+
+              <div className="min-w-0 px-1 pb-1">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="truncate text-[15px] font-black leading-6 text-[#0a2146]" title={record.name}>{record.name}</h3>
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[9px] font-black text-slate-600" title={record.status.name}>
+                    <span aria-hidden="true" className={`size-2 rounded-full ${record.is_active ? (statusTone[record.status.code] ?? 'bg-emerald-500') : 'bg-slate-400'}`} />
+                    {record.status.name}
+                  </span>
+                </div>
+                <dl className="mt-2 grid gap-1.5 border-t border-slate-100 pt-2.5">
+                  <div className="flex items-start justify-between gap-2"><dt className="pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Registra</dt><dd className="max-w-[135px] rounded-md bg-blue-50 px-2 py-1 text-right text-[10px] font-black leading-4 text-[#174a86]" title={record.registered_area?.name ?? 'No registrada'}>{compactAreaName(record.registered_area)}</dd></div>
+                  <div className="flex items-start justify-between gap-2"><dt className="pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Destino</dt><dd className="max-w-[135px] rounded-md bg-slate-100 px-2 py-1 text-right text-[10px] font-black leading-4 text-slate-700" title={record.area.name}>{compactAreaName(record.area)}</dd></div>
+                  <div className="flex items-center justify-between gap-3"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">N.° de serie</dt><dd className="truncate text-right text-xs font-bold text-slate-700">{record.serial_number ?? 'No registrado'}</dd></div>
+                </dl>
+                <div className="mt-3 grid grid-cols-2 gap-1.5"><button className="h-8 rounded-lg border border-slate-200 bg-white text-[11px] font-black text-[#174a86] transition hover:border-blue-200 hover:bg-blue-50" onClick={() => openDetails(record)} type="button">Ver más</button>{canUpdate && <button className="h-8 rounded-lg bg-[#174a86] text-[11px] font-black text-white shadow-md shadow-blue-950/10 transition hover:bg-[#0f376a]" onClick={() => openEditor(record)} type="button">Editar</button>}</div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      {visibleRecords.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center"><p className="text-lg font-black text-slate-800">No encontramos activos</p><p className="mt-2 text-sm text-slate-500">Prueba otra búsqueda o registra el primer equipo o mueble.</p></div>}
+      {pagination.last_page > 1 && <nav aria-label="Paginación de activos" className="flex flex-wrap items-center justify-center gap-2">
+        <button className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={pagination.current_page === 1} onClick={() => onPageChange(pagination.current_page - 1)} type="button">Anterior</button>
+        {Array.from({ length: pagination.last_page }, (_, index) => index + 1).filter((page) => page === 1 || page === pagination.last_page || Math.abs(page - pagination.current_page) <= 2).map((page, index, pages) => <span className="flex items-center gap-2" key={page}>{index > 0 && pages[index - 1] !== page - 1 && <span className="px-1 text-xs font-black text-slate-400">…</span>}<button aria-current={page === pagination.current_page ? 'page' : undefined} className={`grid size-9 place-items-center rounded-lg text-xs font-black transition ${page === pagination.current_page ? 'bg-[#174a86] text-white' : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#174a86]'}`} onClick={() => onPageChange(page)} type="button">{page}</button></span>)}
+        <button className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={pagination.current_page === pagination.last_page} onClick={() => onPageChange(pagination.current_page + 1)} type="button">Siguiente</button>
+      </nav>}
+      {detailsOpen && target !== null && <AssetDetails onClose={() => setDetailsOpen(false)} onEdit={() => openEditor(target)} record={target} />}
+      {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} onDetected={handleQrDetected} />}
+      {editorOpen && <AssetEditor areas={areas} canUpload={canUpload} categories={categories} locations={locations} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} registeredAreaName={registeredAreaName} statuses={statuses} />}
+    </div>
+  )
 }
 
 function MovementsContent({ records, canApprove, canReceive, onChanged }: { readonly records: readonly MovementRequest[]; readonly canApprove: boolean; readonly canReceive: boolean; readonly onChanged: () => void }) {
@@ -500,15 +1072,13 @@ function DataTable({ headers, children }: { readonly headers: readonly string[];
   )
 }
 
-function StatusBadge({ active }: { readonly active: boolean }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{active ? 'Activo' : 'Inactivo'}</span>
-}
-
 function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLogout: () => void }) {
   const items = useMemo(() => navigationFor(user), [user])
   const [section, setSection] = useState<SectionKey>(items[0]?.key ?? 'dashboard')
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [assetRecords, setAssetRecords] = useState<readonly Asset[]>([])
+  const [assetPagination, setAssetPagination] = useState<AssetPage['meta']>({ current_page: 1, last_page: 1, per_page: 12, total: 0 })
+  const [assetPage, setAssetPage] = useState(1)
   const [assetCategoryRecords, setAssetCategoryRecords] = useState<readonly AssetCategory[]>([])
   const [assetStatusRecords, setAssetStatusRecords] = useState<readonly AssetStatus[]>([])
   const [assetLocationRecords, setAssetLocationRecords] = useState<readonly AssetLocation[]>([])
@@ -528,8 +1098,8 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
     try {
       if (section === 'dashboard') setMetrics(await dashboard())
       if (section === 'assets') {
-        const [nextAssets, nextAreas, nextCategories, nextStatuses, nextLocations] = await Promise.all([assets(), areas(), assetCategories(), assetStatuses(), assetLocations()])
-        setAssetRecords(nextAssets); setAreaRecords(nextAreas); setAssetCategoryRecords(nextCategories); setAssetStatusRecords(nextStatuses); setAssetLocationRecords(nextLocations)
+        const [nextAssets, nextAreas, nextCategories, nextStatuses, nextLocations] = await Promise.all([assets(assetPage), areas(), assetCategories(), assetStatuses(), assetLocations()])
+        setAssetRecords(nextAssets.data); setAssetPagination(nextAssets.meta); setAreaRecords(nextAreas); setAssetCategoryRecords(nextCategories); setAssetStatusRecords(nextStatuses); setAssetLocationRecords(nextLocations)
       }
       if (section === 'users') {
         const [nextUsers, nextAreas, nextRoles] = await Promise.all([users(), areas(), roles()])
@@ -538,7 +1108,6 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
         setRoleRecords(nextRoles)
       }
       if (section === 'areas') setAreaRecords(await areas())
-      if (section === 'roles') setRoleRecords(await roles())
       if (section === 'audit') setAuditRecords(await auditEvents())
       if (section === 'movements') setMovementRecords(await movementRequests())
       if (section === 'inventory') setInventoryRecords(await inventoryCampaigns())
@@ -547,7 +1116,7 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
     } finally {
       setBusy(false)
     }
-  }, [section])
+  }, [assetPage, section])
 
   useEffect(() => {
     void loadSection()
@@ -556,32 +1125,31 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
   const activeItem = items.find((item) => item.key === section) ?? items[0]
 
   return (
-    <div className="min-h-screen bg-[#f3f6fa] text-slate-900 lg:grid lg:grid-cols-[276px_minmax(0,1fr)]">
-      <aside className="bg-[#203c86] p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:p-5">
-        <div className="flex items-center gap-3 px-2"><Logo /><div><p className="font-black tracking-tight">Activos</p><p className="text-[11px] text-blue-100/70">Morales</p></div></div>
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.08] p-3.5"><div className="flex items-center gap-2 text-xs font-bold"><span className="size-2 rounded-full bg-emerald-400" />Sistema activo</div></div>
-        <nav aria-label="Navegación principal" className="mt-7 grid gap-1 sm:grid-cols-2 lg:flex lg:flex-1 lg:flex-col">
-          <p className="mb-2 px-3 text-[10px] font-black tracking-[0.18em] text-blue-200/60">PRINCIPAL</p>
+    <div className="min-h-screen bg-[#f3f6fa] text-slate-900 lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
+      <aside className="sidebar-panel p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:p-4">
+        <div className="flex shrink-0 items-center gap-3 px-2 py-1"><Logo /><div className="min-w-0"><p className="truncate font-black tracking-tight">Gestión de activos</p><p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-bold text-blue-100/60"><span className="size-1.5 rounded-full bg-emerald-400" />Sistema operativo</p></div></div>
+        <nav aria-label="Navegación principal" className="sidebar-navigation mt-5 grid min-h-0 gap-1 sm:grid-cols-2 lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:pr-1">
+          <p className="col-span-2 mb-1 px-3 text-[9px] font-black tracking-[0.2em] text-blue-200/50 lg:col-span-1">GESTIÓN</p>
           {items.filter((item) => ['dashboard', 'assets', 'movements', 'inventory'].includes(item.key)).map((item) => (
             <button
-              className={`relative flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition ${section === item.key ? 'bg-white/15 text-white shadow-sm' : 'text-blue-100/75 hover:bg-white/[0.07] hover:text-white'}`}
+              aria-current={section === item.key ? 'page' : undefined}
+              className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-bold transition ${section === item.key ? 'bg-white text-[#12345f] shadow-lg shadow-black/10' : 'text-blue-100/75 hover:bg-white/[0.08] hover:text-white'}`}
               key={item.key}
               onClick={() => setSection(item.key)}
               type="button"
             >
-              {section === item.key && <span className="absolute -left-4 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-amber-300" />}<Icon><path d="M5 6h14M5 12h14M5 18h10" /></Icon>
-              <span><span className="block">{item.label}</span><span className="mt-0.5 block text-[10px] font-medium opacity-55">{item.description}</span></span>
+              <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${section === item.key ? 'bg-[#e8f0fa] text-[#174a86]' : 'bg-white/[0.06]'}`}><NavigationIcon section={item.key} /></span>
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
-          <p className="mb-2 mt-7 px-3 text-[10px] font-black tracking-[0.18em] text-blue-200/60">ANÁLISIS Y CONTROL</p>
-          {items.filter((item) => ['audit', 'roles', 'users', 'areas'].includes(item.key)).map((item) => (
-            <button className={`relative flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition ${section === item.key ? 'bg-white/15 text-white shadow-sm' : 'text-blue-100/75 hover:bg-white/[0.07] hover:text-white'}`} key={item.key} onClick={() => setSection(item.key)} type="button">{section === item.key && <span className="absolute -left-4 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-amber-300" />}<Icon><path d="M5 6h14M5 12h14M5 18h10" /></Icon><span><span className="block">{item.label}</span><span className="mt-0.5 block text-[10px] font-medium opacity-55">{item.description}</span></span></button>
+          <p className="col-span-2 mb-1 mt-4 px-3 text-[9px] font-black tracking-[0.2em] text-blue-200/50 lg:col-span-1">ADMINISTRACIÓN</p>
+          {items.filter((item) => ['audit', 'users', 'areas'].includes(item.key)).map((item) => (
+            <button aria-current={section === item.key ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-bold transition ${section === item.key ? 'bg-white text-[#12345f] shadow-lg shadow-black/10' : 'text-blue-100/75 hover:bg-white/[0.08] hover:text-white'}`} key={item.key} onClick={() => setSection(item.key)} type="button"><span className={`grid size-8 shrink-0 place-items-center rounded-lg ${section === item.key ? 'bg-[#e8f0fa] text-[#174a86]' : 'bg-white/[0.06]'}`}><NavigationIcon section={item.key} /></span><span className="truncate">{item.label}</span></button>
           ))}
         </nav>
-        <div className="mt-5 border-t border-white/10 pt-5">
-          <p className="text-sm font-bold">{user.name}</p>
-          <p className="mt-1 truncate text-xs text-blue-100/55">{user.job_title ?? user.email}</p>
-          <button className="mt-4 flex items-center gap-2 text-xs font-bold text-blue-100/70 hover:text-white" onClick={onLogout} type="button">
+        <div className="mt-4 shrink-0 rounded-2xl border border-white/10 bg-white/[0.07] p-3">
+          <div className="flex min-w-0 items-start gap-3"><div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-[11px] font-black text-[#174a86]">{user.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="min-w-0"><p className="text-xs font-black leading-4 text-white">{user.name}</p><p className="mt-1 text-[10px] leading-4 text-blue-100/55">{user.roles.map((role) => role.name).join(', ') || user.job_title || user.email}</p></div></div>
+          <button className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-[11px] font-bold text-blue-100/70 transition hover:bg-white/[0.08] hover:text-white" onClick={onLogout} type="button">
             <Icon className="size-4"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" /></Icon>
             Cerrar sesión
           </button>
@@ -589,20 +1157,19 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
       </aside>
 
       <main className="min-w-0">
-        <header className="flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8 lg:px-10"><div className="flex items-center gap-3"><div className="hidden text-sm text-slate-400 sm:block">Activos <span className="mx-2">/</span></div><h1 className="text-sm font-black text-slate-800">{activeItem?.label === 'Resumen' ? 'Panel general' : activeItem?.label ?? 'Acceso restringido'}</h1></div><div className="flex items-center gap-2"><div className="grid size-9 place-items-center rounded-xl bg-[#163a73] text-xs font-black text-white">{user.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="hidden lg:block"><p className="text-xs font-black text-slate-800">{user.name}</p><p className="text-[10px] text-slate-500">{user.job_title ?? user.email}</p></div></div>
+        <header className="flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8 lg:px-10"><div><h1 className="text-base font-black text-slate-900">{activeItem?.label === 'Resumen' ? 'Panel general' : activeItem?.label ?? 'Acceso restringido'}</h1><p className="mt-0.5 hidden text-xs text-slate-400 sm:block">{activeItem?.description}</p></div><div className="flex items-center gap-2"><div className="grid size-9 place-items-center rounded-xl bg-[#174a86] text-xs font-black text-white">{user.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="hidden lg:block"><p className="text-xs font-black text-slate-800">{user.name}</p><p className="text-[10px] text-slate-500">{user.roles[0]?.name ?? user.job_title ?? user.email}</p></div></div>
         </header>
         <div className="p-5 sm:p-8 lg:p-12">
           {error && <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700" role="alert"><span>{error}</span><button className="font-black underline" onClick={() => void loadSection()} type="button">Reintentar</button></div>}
           {busy ? <LoadingPanel /> : (
             <>
               {section === 'dashboard' && metrics && <DashboardContent metrics={metrics} />}
-              {section === 'assets' && <AssetsContent areas={areaRecords} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} locations={assetLocationRecords} onChanged={() => void loadSection()} records={assetRecords} statuses={assetStatusRecords} />}
+              {section === 'assets' && <AssetsContent areas={areaRecords} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} locations={assetLocationRecords} onChanged={() => void loadSection()} onPageChange={setAssetPage} pagination={assetPagination} records={assetRecords} registeredAreaName={user.area?.name ?? null} statuses={assetStatusRecords} />}
               {section === 'movements' && <MovementsContent canApprove={user.permissions.includes('movements.approve')} canReceive={user.permissions.includes('movements.receive')} onChanged={() => void loadSection()} records={movementRecords} />}
               {section === 'inventory' && <InventoryContent records={inventoryRecords} />}
               {section === 'users' && <UsersContent areas={areaRecords} canCreate={user.permissions.includes('users.create') && user.permissions.includes('roles.assign')} canUpdate={user.permissions.includes('users.update') && user.permissions.includes('roles.assign')} currentUserId={user.id} onChanged={() => void loadSection()} records={userRecords} roles={roleRecords} />}
               {section === 'areas' && <AreasContent canManage={user.permissions.includes('areas.manage')} onChanged={() => void loadSection()} records={areaRecords} />}
-              {section === 'roles' && <RolesContent records={roleRecords} />}
-              {section === 'audit' && <AuditContent records={auditRecords} />}
+          {section === 'audit' && <AuditContent canManage={user.permissions.includes('audit.manage')} records={auditRecords} />}
             </>
           )}
         </div>
@@ -619,7 +1186,7 @@ function App() {
 
   const [user, setUser] = useState<User | null>(null)
   const [view, setView] = useState<AuthView>(isResetPath ? 'reset' : 'login')
-  const [challenge, setChallenge] = useState<{ id: string; expiresAt: string } | null>(null)
+  const [challenge, setChallenge] = useState<{ id: string; expiresAt: string; destinationHint: string } | null>(null)
   const [loading, setLoading] = useState(!isResetPath)
 
   useEffect(() => {
@@ -653,7 +1220,7 @@ function App() {
   }
 
   if (view === 'mfa' && challenge !== null) {
-    return <MfaView challengeId={challenge.id} expiresAt={challenge.expiresAt} onAuthenticated={setUser} onBack={() => setView('login')} />
+    return <MfaView challengeId={challenge.id} destinationHint={challenge.destinationHint} expiresAt={challenge.expiresAt} onAuthenticated={setUser} onBack={() => setView('login')} />
   }
 
   if (view === 'forgot') {
@@ -668,8 +1235,8 @@ function App() {
     <LoginView
       onAuthenticated={setUser}
       onForgot={() => setView('forgot')}
-      onMfa={(id, expiresAt) => {
-        setChallenge({ id, expiresAt })
+      onMfa={(id, expiresAt, destinationHint) => {
+        setChallenge({ id, expiresAt, destinationHint })
         setView('mfa')
       }}
     />

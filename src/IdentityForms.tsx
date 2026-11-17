@@ -82,7 +82,6 @@ export function UserEditor({ record, areas, roles, onClose, onSaved }: {
   const [email, setEmail] = useState(record?.email ?? '')
   const [areaId, setAreaId] = useState(record?.area?.id.toString() ?? '')
   const [isActive, setIsActive] = useState(record?.is_active ?? true)
-  const [mfaRequired, setMfaRequired] = useState(record?.mfa_required ?? false)
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [assignments, setAssignments] = useState<readonly RoleAssignmentInput[]>(
@@ -119,7 +118,6 @@ export function UserEditor({ record, areas, roles, onClose, onSaved }: {
       phone: phone.trim() === '' ? null : phone,
       email,
       is_active: isActive,
-      mfa_required: mfaRequired,
       role_assignments: assignments,
       ...(record === null ? { password, password_confirmation: passwordConfirmation } : {}),
     }
@@ -136,20 +134,24 @@ export function UserEditor({ record, areas, roles, onClose, onSaved }: {
     }
   }
 
+  const administratorSelected = assignments.some((assignment) =>
+    roles.some((role) => role.id === assignment.role_id && role.code === 'administrador_tecnico'),
+  )
+
   return (
-    <Editor onClose={onClose} subtitle="Los roles y su alcance se validan nuevamente en el servidor y el cambio queda auditado." title={record === null ? 'Registrar usuario' : 'Actualizar usuario'}>
+    <Editor onClose={onClose} subtitle="Registre sus datos y seleccione el perfil de trabajo que tendrá dentro del sistema." title={record === null ? 'Registrar usuario' : 'Actualizar usuario'}>
       <form className="grid gap-6" onSubmit={(event) => void submit(event)}>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Nombres y apellidos" onChange={setName} value={name} />
           <TextField label="Documento de identidad" onChange={setDocumentNumber} value={documentNumber} />
           <TextField label="Cargo" onChange={setJobTitle} value={jobTitle} />
-          <TextField label="Teléfono (opcional)" onChange={setPhone} required={false} value={phone} />
+          <TextField label={administratorSelected ? 'Celular para código SMS' : 'Teléfono (opcional)'} onChange={setPhone} required={administratorSelected} value={phone} />
           <TextField autoComplete="email" label="Correo de acceso" onChange={setEmail} type="email" value={email} />
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             Área
             <select className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" onChange={(event) => setAreaId(event.target.value)} required value={areaId}>
               <option value="">Seleccione un área</option>
-              {areas.filter((area) => area.is_active).map((area) => <option key={area.id} value={area.id}>{area.code} · {area.name}</option>)}
+              {areas.filter((area) => area.is_active && ['PAT', 'TI', 'OCI'].includes(area.code)).map((area) => <option key={area.id} value={area.id}>{area.code} · {area.name}</option>)}
             </select>
           </label>
           {record === null && (
@@ -162,22 +164,23 @@ export function UserEditor({ record, areas, roles, onClose, onSaved }: {
 
         {record === null && <p className="-mt-3 text-xs leading-5 text-slate-500">Mínimo 12 caracteres con mayúsculas, minúsculas, números y símbolos. Entréguela por un canal seguro.</p>}
 
-        <fieldset className="grid gap-3">
-          <legend className="text-sm font-black text-slate-800">Roles y alcance</legend>
+        <fieldset className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+          <legend className="px-2 text-sm font-black text-slate-800">Perfil de acceso</legend>
+          <p className="text-xs leading-5 text-slate-500">Los permisos se aplican automáticamente según el perfil seleccionado.</p>
           <div className="grid gap-2 sm:grid-cols-2">
-            {roles.map((role) => {
+            {roles.filter((role) => record !== null || ['asistente_ti', 'asistente_patrimonio', 'asistente_oci'].includes(role.code)).map((role) => {
               const assignment = assignments.find((item) => item.role_id === role.id)
 
               return (
-                <div className="rounded-xl border border-slate-200 p-3" key={role.id}>
+                <div className={`rounded-xl border bg-white p-3 transition ${assignment !== undefined ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200'}`} key={role.id}>
                   <label className="flex items-start gap-3 text-sm font-bold text-slate-700">
                     <input checked={assignment !== undefined} className="mt-0.5 size-4 accent-[#163a73]" onChange={() => toggleRole(role.id)} type="checkbox" />
-                    <span>{role.name}<span className="mt-0.5 block text-[11px] font-medium text-slate-400">{role.code}</span></span>
+                    <span>{role.name}<span className="mt-1 block text-[11px] font-medium leading-4 text-slate-400">{role.description ?? 'Perfil institucional del sistema.'}</span></span>
                   </label>
                   {assignment !== undefined && (
                     <select aria-label={`Alcance de ${role.name}`} className="mt-3 h-9 w-full rounded-lg border border-slate-300 bg-slate-50 px-2 text-xs font-bold" onChange={(event) => changeScope(role.id, event.target.value as RoleAssignmentInput['scope'])} value={assignment.scope}>
-                      <option value="own_area">Solo su área</option>
-                      <option value="global">Todas las áreas</option>
+                      <option value="own_area">Trabaja únicamente con su área</option>
+                      <option value="global">Puede consultar todas las áreas</option>
                     </select>
                   )}
                 </div>
@@ -186,9 +189,13 @@ export function UserEditor({ record, areas, roles, onClose, onSaved }: {
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap gap-5 rounded-xl bg-slate-50 p-4">
+        <div className="grid gap-3 rounded-xl bg-slate-50 p-4">
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={isActive} className="size-4 accent-[#163a73]" onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />Cuenta activa</label>
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input checked={mfaRequired} className="size-4 accent-[#163a73]" onChange={(event) => setMfaRequired(event.target.checked)} type="checkbox" />Exigir MFA</label>
+          <p className={`rounded-xl border p-3 text-xs font-semibold leading-5 ${administratorSelected ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-600'}`}>
+            {administratorSelected
+              ? 'Seguridad de TI: esta cuenta exigirá un código SMS en cada inicio de sesión. El celular es obligatorio.'
+              : 'Acceso estándar: esta cuenta ingresará con correo y contraseña, sin código SMS.'}
+          </p>
         </div>
 
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
