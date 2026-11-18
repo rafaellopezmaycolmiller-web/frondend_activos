@@ -25,8 +25,11 @@ interface ApiErrorPayload {
 
 const configuredApiBase = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '')
 // Keep the hosted demo usable if Railway saves a wrapped/truncated VITE_API_URL.
-const API_BASE = configuredApiBase.startsWith('https://backendactivos-') && configuredApiBase !== 'https://backendactivos-production.up.railway.app'
-  ? 'https://backendactivos-production.up.railway.app'
+const hostedBackendUrl = 'https://backendactivos-production-d5bc21c1.up.railway.app'
+const API_BASE = configuredApiBase === ''
+  || configuredApiBase === 'https://backendactivos-production.up.railway.app'
+  || configuredApiBase.startsWith('https://backendactivos-') && configuredApiBase !== hostedBackendUrl
+  ? hostedBackendUrl
   : configuredApiBase
 
 let csrfToken: string | null = null
