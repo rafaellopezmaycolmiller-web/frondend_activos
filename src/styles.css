@@ -76,6 +76,26 @@ body {
   scrollbar-width: thin;
 }
 
+.dashboard-main {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%);
+}
+
+.dashboard-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 1px 0 rgb(15 35 65 / 4%), 0 8px 24px rgb(15 35 65 / 3%);
+}
+
+.dashboard-content > div {
+  animation: content-enter 180ms ease-out;
+}
+
+@keyframes content-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 639px) {
   .auth-form-panel {
     border-top: 4px solid #163a73;

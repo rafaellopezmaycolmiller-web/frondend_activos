@@ -3,7 +3,9 @@ import QRCode from 'qrcode'
 import jsQR from 'jsqr'
 import {
   archiveAuditEvent,
+  assetCustodianships,
   assetByCode,
+  assignCustodian,
   ApiError,
   assetCategories,
   assetLocations,
@@ -12,7 +14,18 @@ import {
   areas,
   auditEvents,
   decideMovement,
+  createMovement,
+  movementRecipients,
+  createInventoryCampaign,
+  startInventoryCampaign,
+  closeInventoryCampaign,
+  recordInventoryCheck,
+  reconciliations,
+  reconciliationDetails,
+  createReconciliation,
+  updateReconciliationDifference,
   currentUser,
+  custodianshipCandidates,
   dashboard,
   login,
   logout as logoutRequest,
@@ -24,13 +37,23 @@ import {
   roles,
   users,
   verifyMfa,
+  technicalEvaluations,
+  createTechnicalEvaluation,
+  updateTechnicalEvaluation,
+  disposalRequests,
+  createDisposalRequest,
+  reviewDisposalRequest,
+  uploadTechnicalEvaluationDocument,
+  uploadDisposalDocument,
+  reports,
+  reportExportUrl,
 } from './api'
 import { AreaEditor, UserEditor } from './IdentityForms'
 import { AssetEditor } from './AssetForms'
-import type { Area, Asset, AssetCategory, AssetLocation, AssetPage, AssetStatus, AuditEvent, DashboardMetrics, InventoryCampaign, MovementRequest, Role, User } from './types'
+import type { Area, Asset, AssetCategory, AssetLocation, AssetPage, AssetStatus, AuditEvent, Custodianship, DashboardMetrics, InventoryCampaign, MovementRequest, Role, User, ReconciliationRun, TechnicalEvaluation, DisposalRequest, ReportResult } from './types'
 
 type AuthView = 'login' | 'forgot' | 'mfa' | 'reset'
-type SectionKey = 'dashboard' | 'assets' | 'movements' | 'inventory' | 'users' | 'areas' | 'audit'
+type SectionKey = 'dashboard' | 'assets' | 'movements' | 'inventory' | 'reconciliation' | 'evaluations' | 'disposals' | 'reports' | 'users' | 'areas' | 'audit'
 
 function compactAreaName(area: { readonly code: string; readonly name: string } | null | undefined): string {
   if (area === null || area === undefined) return 'No registrada'
@@ -57,6 +80,10 @@ const navigation: readonly NavigationItem[] = [
   { key: 'assets', label: 'Activos', permission: 'assets.view', description: 'Registro y consulta de bienes' },
   { key: 'movements', label: 'Movimientos', permission: 'movements.view', description: 'Traslados y entregas' },
   { key: 'inventory', label: 'Inventario', permission: 'inventory.view', description: 'Verificación física' },
+  { key: 'reconciliation', label: 'Conciliación', permission: 'reconciliation.view', description: 'Comparar padrones' },
+  { key: 'evaluations', label: 'Evaluaciones', permission: 'evaluations.view', description: 'Diagnóstico técnico' },
+  { key: 'disposals', label: 'Bajas', permission: 'disposals.view', description: 'Expedientes de baja' },
+  { key: 'reports', label: 'Reportes', permission: 'reports.view', description: 'Consultas y exportaciones' },
   { key: 'users', label: 'Usuarios', permission: 'users.view', description: 'Cuentas institucionales' },
   { key: 'areas', label: 'Áreas', permission: 'areas.view', description: 'Organización municipal' },
   { key: 'audit', label: 'Auditoría', permission: 'audit.view', description: 'Trazabilidad de acciones' },
@@ -98,6 +125,10 @@ function NavigationIcon({ section }: { readonly section: SectionKey }) {
     assets: <><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4.5 7.5 7.5 4 7.5-4M12 11.5V21" /></>,
     movements: <><path d="M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4" /></>,
     inventory: <><rect height="17" rx="2" width="15" x="4.5" y="4" /><path d="M9 4V2.5h6V4M8 9h8M8 13h8M8 17h5" /></>,
+    reconciliation: <><path d="M4 6h16M4 12h16M4 18h10" /><circle cx="18" cy="18" r="3" /></>,
+    evaluations: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    disposals: <><path d="M5 4h14v16H5z" /><path d="M8 9h8M8 13h5" /><path d="m15 15 4 4" /></>,
+    reports: <><path d="M5 20V10M12 20V4M19 20v-7" /><path d="M3 20h18" /></>,
     users: <><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M18 9a3 3 0 0 1 0 6M22 20v-2a4 4 0 0 0-3-3.9" /></>,
     areas: <><path d="M4 21V8l8-5 8 5v13M2 21h20M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3" /></>,
     audit: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h3M9 17h2" /><circle cx="16" cy="15" r="3" /><path d="m18.3 17.3 2 2" /></>,
@@ -814,7 +845,7 @@ function AssetVisualIcon({ record }: { readonly record: Asset }) {
 
 function AssetQr({ record }: { readonly record: Asset }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const qrValue = `${window.location.origin}/activos/${encodeURIComponent(record.asset_code)}`
+  const qrValue = window.location.origin + '/?asset=' + encodeURIComponent(record.asset_code)
 
   useEffect(() => {
     if (canvasRef.current !== null) void QRCode.toCanvas(canvasRef.current, qrValue, { width: 180, margin: 2, color: { dark: '#0a2146', light: '#ffffff' } })
@@ -834,7 +865,7 @@ function AssetQr({ record }: { readonly record: Asset }) {
 function QrScanner({ onClose, onDetected }: { readonly onClose: () => void; readonly onDetected: (value: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [message, setMessage] = useState('Apunte la cámara al código QR del activo.')
+  const [message, setMessage] = useState('Opción 1: apunte la cámara al QR del activo. Si no hay cámara, use la opción 2.')
   const [manualCode, setManualCode] = useState('')
 
   useEffect(() => {
@@ -888,11 +919,51 @@ function QrScanner({ onClose, onDetected }: { readonly onClose: () => void; read
     return () => { stopped = true; stream?.getTracks().forEach((track) => track.stop()) }
   }, [onDetected])
 
-  return <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog"><div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-black text-[#0a2146]">Escanear activo</h2><button className="grid size-9 place-items-center rounded-lg bg-slate-100 text-lg font-bold" onClick={onClose} type="button">×</button></div><video aria-label="Vista de la cámara para escanear QR" autoPlay className="mt-4 aspect-square w-full rounded-xl bg-slate-950 object-cover" muted playsInline ref={videoRef} /><canvas className="hidden" ref={canvasRef} /><p className="mt-3 text-center text-xs font-semibold text-slate-500">{message}</p><div className="mt-4 flex gap-2"><input className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm" onChange={(event) => setManualCode(event.target.value)} placeholder="Código patrimonial" value={manualCode} /><button className="h-10 rounded-lg bg-[#174a86] px-3 text-xs font-black text-white disabled:opacity-40" disabled={manualCode.trim() === ''} onClick={() => onDetected(manualCode.trim())} type="button">Buscar</button></div></div></div>
+  return <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog"><div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-black text-[#0a2146]">Identificar activo</h2><button aria-label="Cerrar lector QR" className="grid size-9 place-items-center rounded-lg bg-slate-100 text-lg font-bold" onClick={onClose} type="button">×</button></div><div className="mt-4 overflow-hidden rounded-xl border border-slate-200"><video aria-label="Vista de cámara para escanear QR" autoPlay className="aspect-square w-full bg-slate-950 object-cover" muted playsInline ref={videoRef} /><div className="bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600">Opción 1 · Lectura con cámara</div></div><canvas className="hidden" ref={canvasRef} /><p className="mt-3 text-center text-xs font-semibold text-slate-500">{message}</p><div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3"><p className="text-[11px] font-black uppercase tracking-wide text-[#174a86]">Opción 2 · Ingreso manual de respaldo</p><div className="mt-2 flex gap-2"><input aria-label="Código patrimonial manual" className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setManualCode(event.target.value)} placeholder="Ej. PAT-0001" value={manualCode} /><button className="h-10 rounded-lg bg-[#174a86] px-3 text-xs font-black text-white disabled:opacity-40" disabled={manualCode.trim() === ''} onClick={() => onDetected(manualCode.trim())} type="button">Usar código</button></div></div></div></div>
 }
 
-function AssetDetails({ record, onClose, onEdit }: { readonly record: Asset; readonly onClose: () => void; readonly onEdit: () => void }) {
+function AssetDetails({ record, canAssign, onClose, onEdit }: { readonly record: Asset; readonly canAssign: boolean; readonly onClose: () => void; readonly onEdit: () => void }) {
   const photo = record.documents?.find((document) => document.document_type === 'photo')
+  const [custodianships, setCustodianships] = useState<readonly Custodianship[]>([])
+  const [candidates, setCandidates] = useState<readonly User[]>([])
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [loadingCustody, setLoadingCustody] = useState(true)
+  const [savingCustody, setSavingCustody] = useState(false)
+  const [custodyMessage, setCustodyMessage] = useState('')
+
+  const loadCustody = useCallback(async () => {
+    setLoadingCustody(true)
+    try {
+      const history = await assetCustodianships(record.id)
+      setCustodianships(history)
+      if (canAssign) setCandidates(await custodianshipCandidates(record.id))
+    } catch (caught) {
+      setCustodyMessage(caught instanceof ApiError ? caught.message : 'No se pudo cargar la custodia.')
+    } finally {
+      setLoadingCustody(false)
+    }
+  }, [canAssign, record.id])
+
+  useEffect(() => { void loadCustody() }, [loadCustody])
+
+  async function saveCustody() {
+    const userId = Number(selectedUserId)
+    if (!Number.isInteger(userId) || userId < 1) return
+    setSavingCustody(true)
+    setCustodyMessage('')
+    try {
+      await assignCustodian(record.id, userId, notes)
+      setSelectedUserId('')
+      setNotes('')
+      setCustodyMessage('Custodia registrada y la anterior quedó terminada.')
+      await loadCustody()
+    } catch (caught) {
+      setCustodyMessage(caught instanceof ApiError ? caught.message : 'No se pudo registrar la custodia.')
+    } finally {
+      setSavingCustody(false)
+    }
+  }
 
   return (
     <div aria-modal="true" className="fixed inset-0 z-50 grid overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="dialog">
@@ -907,6 +978,7 @@ function AssetDetails({ record, onClose, onEdit }: { readonly record: Asset; rea
             <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-3 py-1 text-[10px] font-black ${record.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{record.is_active ? 'Activo vigente' : 'Activo inactivo'}</span><span className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-700"><span className={`size-2 rounded-full ${record.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{record.status.name}</span></div>
             <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Identificación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código patrimonial</dt><dd className="mt-1 text-sm font-black text-[#0a2146]">{record.asset_code}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tipo de bien</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.category.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">N.° de serie</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.serial_number ?? 'No registrado'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código de inventario</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.inventory_code ?? 'No registrado'}</dd></div></dl></div>
             <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Asignación y ubicación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área que registró</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.registered_area?.name ?? 'No registrada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área designada</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.area.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ubicación física</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.location?.name ?? 'No especificada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Marca y modelo</dt><dd className="mt-1 text-sm font-bold text-slate-700">{[record.brand, record.model].filter(Boolean).join(' · ') || 'No registrados'}</dd></div></dl></div>
+            <section aria-label="Custodia del activo" className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Custodia y responsable vigente</p>{loadingCustody && <span className="text-[10px] font-bold text-slate-400">Cargando…</span>}</div>{custodianships.length === 0 && !loadingCustody && <p className="text-xs text-slate-500">No hay asignaciones registradas.</p>}{custodianships.map((custody) => <div className="rounded-xl border border-slate-100 bg-slate-50 p-3" key={custody.id}><div className="flex items-center justify-between gap-2"><strong className="text-sm text-slate-800">{custody.user?.name ?? 'Usuario #' + custody.user_id}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-black ${custody.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{custody.status === 'active' ? 'Vigente' : 'Terminada'}</span></div><p className="mt-1 text-[11px] text-slate-500">Desde {new Date(custody.started_at).toLocaleString()} {custody.ended_at ? '· hasta ' + new Date(custody.ended_at).toLocaleString() : ''}</p>{custody.notes && <p className="mt-1 text-xs text-slate-600">{custody.notes}</p>}</div>)}{canAssign && <div className="grid gap-2 border-t border-slate-100 pt-3"><label className="text-[10px] font-black uppercase tracking-wider text-slate-400" htmlFor="custodian-select">Asignar custodio del área</label><select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" id="custodian-select" onChange={(event) => setSelectedUserId(event.target.value)} value={selectedUserId}><option value="">Seleccione una persona</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.email}</option>)}</select><textarea className="min-h-16 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onChange={(event) => setNotes(event.target.value)} placeholder="Nota de la asignación (opcional)" value={notes} /><button className="h-10 rounded-lg bg-[#174a86] px-4 text-xs font-black text-white disabled:opacity-40" disabled={savingCustody || selectedUserId === ''} onClick={() => void saveCustody()} type="button">{savingCustody ? 'Guardando…' : 'Asignar custodio'}</button></div>}{custodyMessage && <p className="text-xs font-bold text-slate-600" role="status">{custodyMessage}</p>}</section>
             {record.description && <div className="rounded-2xl border border-slate-200 bg-white p-5"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Observaciones</dt><dd className="mt-2 text-sm leading-6 text-slate-600">{record.description}</dd></div>}
             <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><button className="h-10 rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-200" onClick={onClose} type="button">Cerrar</button><button className="h-10 rounded-xl bg-[#174a86] px-5 text-sm font-black text-white transition hover:bg-[#0f376a]" onClick={onEdit} type="button">Editar activo</button></div>
           </div>
@@ -916,12 +988,23 @@ function AssetDetails({ record, onClose, onEdit }: { readonly record: Asset; rea
   )
 }
 
-function AssetsContent({ records, pagination, areas, categories, statuses, locations, registeredAreaName, canCreate, canUpdate, canUpload, onChanged, onPageChange }: { readonly records: readonly Asset[]; readonly pagination: AssetPage['meta']; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly registeredAreaName: string | null; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void; readonly onPageChange: (page: number) => void }) {
+function AssetsContent({ records, pagination, areas, categories, statuses, locations, registeredAreaName, initialAssetCode, canCreate, canUpdate, canUpload, onChanged, onPageChange }: { readonly records: readonly Asset[]; readonly pagination: AssetPage['meta']; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly registeredAreaName: string | null; readonly initialAssetCode: string | null; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void; readonly onPageChange: (page: number) => void }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [target, setTarget] = useState<Asset | null>(null)
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (initialAssetCode === null || target !== null) return
+    const loaded = records.find((record) => record.asset_code === initialAssetCode)
+    if (loaded !== undefined) {
+      setTarget(loaded)
+      setDetailsOpen(true)
+      return
+    }
+    void assetByCode(initialAssetCode).then((asset) => { setTarget(asset); setDetailsOpen(true) }).catch(() => setSearch(initialAssetCode))
+  }, [initialAssetCode, records, target])
 
   const handleQrDetected = useCallback(async (value: string) => {
     try {
@@ -1040,24 +1123,61 @@ function AssetsContent({ records, pagination, areas, categories, statuses, locat
         {Array.from({ length: pagination.last_page }, (_, index) => index + 1).filter((page) => page === 1 || page === pagination.last_page || Math.abs(page - pagination.current_page) <= 2).map((page, index, pages) => <span className="flex items-center gap-2" key={page}>{index > 0 && pages[index - 1] !== page - 1 && <span className="px-1 text-xs font-black text-slate-400">…</span>}<button aria-current={page === pagination.current_page ? 'page' : undefined} className={`grid size-9 place-items-center rounded-lg text-xs font-black transition ${page === pagination.current_page ? 'bg-[#174a86] text-white' : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#174a86]'}`} onClick={() => onPageChange(page)} type="button">{page}</button></span>)}
         <button className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={pagination.current_page === pagination.last_page} onClick={() => onPageChange(pagination.current_page + 1)} type="button">Siguiente</button>
       </nav>}
-      {detailsOpen && target !== null && <AssetDetails onClose={() => setDetailsOpen(false)} onEdit={() => openEditor(target)} record={target} />}
+      {detailsOpen && target !== null && <AssetDetails canAssign={canUpdate} onClose={() => setDetailsOpen(false)} onEdit={() => openEditor(target)} record={target} />}
       {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} onDetected={handleQrDetected} />}
       {editorOpen && <AssetEditor areas={areas} canUpload={canUpload} categories={categories} locations={locations} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} registeredAreaName={registeredAreaName} statuses={statuses} />}
     </div>
   )
 }
 
-function MovementsContent({ records, canApprove, canReceive, onChanged }: { readonly records: readonly MovementRequest[]; readonly canApprove: boolean; readonly canReceive: boolean; readonly onChanged: () => void }) {
+function MovementsContent({ records, canApprove, canReceive, canCreate, assets: assetOptions, areas: areaOptions, locations, onChanged }: { readonly records: readonly MovementRequest[]; readonly canApprove: boolean; readonly canReceive: boolean; readonly canCreate: boolean; readonly assets: readonly Asset[]; readonly areas: readonly Area[]; readonly locations: readonly AssetLocation[]; readonly onChanged: () => void }) {
   const [busy, setBusy] = useState<number | null>(null)
+  const [form, setForm] = useState({ asset_id: '', to_area_id: '', to_location_id: '', to_user_id: '', reason: '' })
+  const [recipients, setRecipients] = useState<readonly User[]>([])
+  useEffect(() => { if (form.to_area_id !== '') void movementRecipients(Number(form.to_area_id)).then(setRecipients).catch(() => setRecipients([])) }, [form.to_area_id])
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(-1); try { await createMovement({ asset_id: Number(form.asset_id), to_area_id: Number(form.to_area_id), to_location_id: form.to_location_id === '' ? null : Number(form.to_location_id), to_user_id: form.to_user_id === '' ? null : Number(form.to_user_id), reason: form.reason }); setForm({ asset_id: '', to_area_id: '', to_location_id: '', to_user_id: '', reason: '' }); onChanged() } finally { setBusy(null) } }
   async function decide(record: MovementRequest, decision: 'approved' | 'rejected') {
     setBusy(record.id)
-    try { await decideMovement(record.id, decision); onChanged() } finally { setBusy(null) }
+    try { const reason = decision === 'rejected' ? window.prompt('Motivo del rechazo:') : undefined; if (decision === 'rejected' && !reason?.trim()) return; await decideMovement(record.id, decision, reason ?? undefined); onChanged() } finally { setBusy(null) }
   }
   async function receive(record: MovementRequest) { setBusy(record.id); try { await receiveMovement(record.id); onChanged() } finally { setBusy(null) } }
-  return <div className="grid gap-5"><SectionHeading description="Solicitudes y estados." title="Movimientos patrimoniales" /><DataTable headers={['Activo', 'Origen', 'Destino', 'Motivo', 'Estado', 'Acción']}>{records.map((record) => <tr className="border-t border-slate-100" key={record.id}><td className="px-5 py-4"><strong>{record.asset?.asset_code ?? `#${record.asset_id}`}</strong><span className="block text-xs text-slate-500">{record.asset?.name ?? 'Activo'}</span></td><td className="px-5 py-4 text-sm text-slate-600">{record.from_area?.name ?? '—'}</td><td className="px-5 py-4 text-sm text-slate-600">{record.to_area?.name ?? '—'}</td><td className="max-w-xs px-5 py-4 text-sm text-slate-600">{record.reason}</td><td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{record.status}</span></td><td className="px-5 py-4"><div className="flex gap-2">{canApprove && record.status === 'pending' && <><button className="text-xs font-black text-emerald-700 hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void decide(record, 'approved')} type="button">Aprobar</button><button className="text-xs font-black text-red-700 hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void decide(record, 'rejected')} type="button">Rechazar</button></>}{canReceive && record.status === 'approved' && <button className="text-xs font-black text-[#1e4f97] hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void receive(record)} type="button">Recibir</button>}</div></td></tr>)}</DataTable></div>
+  return <div className="grid gap-5"><SectionHeading description="Solicitud → revisión → aprobación → recepción." title="Movimientos patrimoniales" />{canCreate && <form className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 md:grid-cols-5" onSubmit={(event) => void submit(event)}><select className="rounded-lg border p-2 text-sm" required value={form.asset_id} onChange={(e) => setForm({ ...form, asset_id: e.target.value })}><option value="">Bien patrimonial</option>{assetOptions.filter((a) => a.is_active).map((a) => <option key={a.id} value={a.id}>{a.asset_code} · {a.name}</option>)}</select><select className="rounded-lg border p-2 text-sm" required value={form.to_area_id} onChange={(e) => setForm({ ...form, to_area_id: e.target.value, to_location_id: '', to_user_id: '' })}><option value="">Área destino</option>{areaOptions.filter((a) => a.is_active).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select><select className="rounded-lg border p-2 text-sm" value={form.to_location_id} onChange={(e) => setForm({ ...form, to_location_id: e.target.value })}><option value="">Ubicación destino</option>{locations.filter((l) => l.area_id === Number(form.to_area_id)).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select><select className="rounded-lg border p-2 text-sm" value={form.to_user_id} onChange={(e) => setForm({ ...form, to_user_id: e.target.value })}><option value="">Custodio receptor (opcional)</option>{recipients.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select><div className="flex gap-2"><input className="min-w-0 flex-1 rounded-lg border p-2 text-sm" required placeholder="Motivo" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /><button className="rounded-lg bg-[#174a86] px-4 text-xs font-black text-white" disabled={busy === -1} type="submit">Solicitar</button></div></form>}<DataTable headers={['Activo', 'Origen', 'Destino', 'Motivo', 'Estado', 'Acción']}>{records.map((record) => <tr className="border-t border-slate-100" key={record.id}><td className="px-5 py-4"><strong>{record.asset?.asset_code ?? `#${record.asset_id}`}</strong><span className="block text-xs text-slate-500">{record.asset?.name ?? 'Activo'}</span></td><td className="px-5 py-4 text-sm text-slate-600">{record.from_area?.name ?? '—'}</td><td className="px-5 py-4 text-sm text-slate-600">{record.to_area?.name ?? '—'}</td><td className="max-w-xs px-5 py-4 text-sm text-slate-600">{record.reason}</td><td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{record.status}</span></td><td className="px-5 py-4"><div className="flex gap-2">{canApprove && record.status === 'pending' && <><button className="text-xs font-black text-emerald-700 hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void decide(record, 'approved')} type="button">Aprobar</button><button className="text-xs font-black text-red-700 hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void decide(record, 'rejected')} type="button">Rechazar</button></>}{canReceive && record.status === 'approved' && <button className="text-xs font-black text-[#1e4f97] hover:underline disabled:opacity-50" disabled={busy === record.id} onClick={() => void receive(record)} type="button">Recibir</button>}</div></td></tr>)}</DataTable></div>
 }
 
-function InventoryContent({ records }: { readonly records: readonly InventoryCampaign[] }) { return <div className="grid gap-5"><SectionHeading description="Campañas de verificación física y conciliación de diferencias." title="Inventario físico" /><DataTable headers={['Código', 'Campaña', 'Área', 'Verificaciones', 'Estado']}>{records.map((record) => <tr className="border-t border-slate-100" key={record.id}><td className="px-5 py-4 text-xs font-black text-[#1e4f97]">{record.code}</td><td className="px-5 py-4 font-bold">{record.name}</td><td className="px-5 py-4 text-sm text-slate-600">{record.area?.name ?? '—'}</td><td className="px-5 py-4 text-sm text-slate-600">{record.checks_count ?? 0}</td><td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{record.status.replace('_', ' ')}</span></td></tr>)}</DataTable></div> }
+function InventoryContent({ records, areas: areaOptions, assets: assetOptions, locations, canManage, canCheck, onChanged }: { readonly records: readonly InventoryCampaign[]; readonly areas: readonly Area[]; readonly assets: readonly Asset[]; readonly locations: readonly AssetLocation[]; readonly canManage: boolean; readonly canCheck: boolean; readonly onChanged: () => void }) { const [form,setForm]=useState({code:'',name:'',area_id:'',notes:''}); const [check,setCheck]=useState({campaign:'',asset:'',result:'found',location:'',notes:''}); const [busy,setBusy]=useState(false); const [scannerOpen,setScannerOpen]=useState(false); async function create(event:FormEvent){event.preventDefault();setBusy(true);try{await createInventoryCampaign({code:form.code,name:form.name,area_id:Number(form.area_id),notes:form.notes});setForm({code:'',name:'',area_id:'',notes:''});onChanged()}finally{setBusy(false)}} async function verify(event:FormEvent){event.preventDefault();setBusy(true);try{const asset=assetOptions.find(a=>a.asset_code===check.asset);if(!asset) throw new Error('Código patrimonial no encontrado');await recordInventoryCheck(Number(check.campaign),{asset_id:asset.id,result:check.result,observed_location_id:check.location?Number(check.location):null,notes:check.notes});setCheck({...check,asset:'',notes:''});onChanged()}finally{setBusy(false)}} return <div className="grid gap-5"><SectionHeading description="Campañas con verificación persistente y hallazgos separados del padrón." title="Inventario físico" />{canManage&&<form className="grid gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 md:grid-cols-5" onSubmit={(e)=>void create(e)}><input className="rounded-lg border p-2 text-sm" required placeholder="Código campaña" value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/><input className="rounded-lg border p-2 text-sm" required placeholder="Nombre" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/><select className="rounded-lg border p-2 text-sm" required value={form.area_id} onChange={e=>setForm({...form,area_id:e.target.value})}><option value="">Área</option>{areaOptions.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><input className="rounded-lg border p-2 text-sm" placeholder="Observaciones" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/><button className="rounded-lg bg-emerald-700 px-3 text-xs font-black text-white" disabled={busy} type="submit">Crear campaña</button></form>}{canCheck&&<form className="grid gap-2 rounded-2xl border border-amber-100 bg-amber-50 p-4 md:grid-cols-6" onSubmit={(e)=>void verify(e)}><select className="rounded-lg border p-2 text-sm" required value={check.campaign} onChange={e=>setCheck({...check,campaign:e.target.value})}><option value="">Campaña en curso</option>{records.filter(r=>r.status==='in_progress').map(r=><option key={r.id} value={r.id}>{r.code}</option>)}</select><div className="flex gap-1"><input className="min-w-0 rounded-lg border p-2 text-sm" required placeholder="Código patrimonial" value={check.asset} onChange={e=>setCheck({...check,asset:e.target.value})}/><button className="rounded-lg border bg-white px-2 text-xs font-black" onClick={()=>setScannerOpen(true)} type="button">QR</button></div><select className="rounded-lg border p-2 text-sm" value={check.result} onChange={e=>setCheck({...check,result:e.target.value})}><option value="found">Encontrado</option><option value="not_found">No encontrado</option><option value="location_mismatch">Ubicación distinta</option></select><select className="rounded-lg border p-2 text-sm" value={check.location} onChange={e=>setCheck({...check,location:e.target.value})}><option value="">Ubicación observada</option>{locations.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select><button className="rounded-lg bg-amber-700 px-3 text-xs font-black text-white" disabled={busy} type="submit">Registrar verificación</button>{scannerOpen&&<QrScanner onClose={()=>setScannerOpen(false)} onDetected={(code)=>{setCheck({...check,asset:code});setScannerOpen(false)}}/>}</form>}<DataTable headers={['Código','Campaña','Área','Progreso','Hallazgos','Estado','Acción']}>{records.map(r=><tr className="border-t border-slate-100" key={r.id}><td className="px-5 py-4 text-xs font-black text-[#1e4f97]">{r.code}</td><td className="px-5 py-4 font-bold">{r.name}</td><td className="px-5 py-4 text-sm">{r.area?.name??'—'}</td><td className="px-5 py-4 text-sm">{r.checks_count??0}/{r.assets_total??'—'}</td><td className="px-5 py-4 text-sm">N/E {r.not_found_count??0} · Ub. {r.location_mismatch_count??0}</td><td className="px-5 py-4 text-sm">{r.status.replace('_',' ')}</td><td className="px-5 py-4">{canManage&&r.status==='planned'&&<button className="text-xs font-black text-emerald-700" onClick={()=>void startInventoryCampaign(r.id).then(onChanged)} type="button">Iniciar</button>}{canManage&&r.status==='in_progress'&&<button className="text-xs font-black text-red-700" onClick={()=>void closeInventoryCampaign(r.id).then(onChanged)} type="button">Cerrar</button>}</td></tr>)}</DataTable></div> }
+
+function ReconciliationContent({ records, canCreate, canReview, onChanged }: { readonly records: readonly ReconciliationRun[]; readonly canCreate: boolean; readonly canReview: boolean; readonly onChanged: () => void }) { const [form,setForm]=useState({code:'',name:'',file:null as File|null}); const [detail,setDetail]=useState<ReconciliationRun|null>(null); const [busy,setBusy]=useState(false); async function submit(e:FormEvent){e.preventDefault();if(!form.file)return;setBusy(true);try{const body=new FormData();body.append('code',form.code);body.append('name',form.name);body.append('file',form.file);await createReconciliation(body);setForm({code:'',name:'',file:null});onChanged()}finally{setBusy(false)}} return <div className="grid gap-5"><SectionHeading description="Comparación contra un CSV ficticio; no es integración SIGA/MEF/SINABIP." title="Conciliación patrimonial" />{canCreate&&<form className="flex flex-wrap gap-2 rounded-2xl border border-violet-100 bg-violet-50 p-4" onSubmit={(e)=>void submit(e)}><input className="rounded-lg border p-2 text-sm" required placeholder="Código" value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/><input className="rounded-lg border p-2 text-sm" required placeholder="Nombre de ejecución" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/><input className="rounded-lg border bg-white p-2 text-sm" required accept=".csv,.txt" type="file" onChange={e=>setForm({...form,file:e.target.files?.[0]??null})}/><button className="rounded-lg bg-violet-700 px-4 text-xs font-black text-white" disabled={busy} type="submit">Comparar CSV</button></form>}<DataTable headers={['Código','Ejecución','Fuente','Diferencias','Pendientes','Resueltas','Detalle']}>{records.map(r=><tr className="border-t border-slate-100" key={r.id}><td className="px-5 py-4 text-xs font-black text-violet-700">{r.code}</td><td className="px-5 py-4 font-bold">{r.name}</td><td className="px-5 py-4 text-sm">{r.source_file_name}</td><td className="px-5 py-4 text-sm">{r.total_differences??0}</td><td className="px-5 py-4 text-sm">{r.pending_differences??0}</td><td className="px-5 py-4 text-sm">{r.resolved_differences??0}</td><td><button className="text-xs font-black text-violet-700" onClick={()=>void reconciliationDetails(r.id).then(setDetail)} type="button">Revisar</button></td></tr>)}</DataTable>{detail&&<div className="rounded-2xl border border-violet-100 bg-white p-4"><p className="font-black">Diferencias de {detail.code}</p><div className="mt-3 grid gap-2">{detail.differences?.map(d=><div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm" key={d.id}><span><b>{d.asset_code}</b> · {d.difference_type} · {d.status}</span>{canReview&&d.status!=='resolved'&&<button className="rounded bg-emerald-700 px-2 py-1 text-xs font-black text-white" disabled={busy} onClick={()=>{setBusy(true);void updateReconciliationDifference(d.id,'resolved','Diferencia revisada en prototipo').then(()=>reconciliationDetails(detail.id)).then(setDetail).then(()=>{setBusy(false);onChanged()})}} type="button">Marcar resuelta</button>}</div>)}</div></div>}</div> }
+
+function EvaluationsContent({ records, assets: assetOptions, users: userOptions, canAssign, canCreate, canUpdate, onChanged }: { readonly records: readonly TechnicalEvaluation[]; readonly assets: readonly Asset[]; readonly users: readonly User[]; readonly canAssign: boolean; readonly canCreate: boolean; readonly canUpdate: boolean; readonly onChanged: () => void }) {
+  const [form, setForm] = useState({ asset_id: '', reason: '', assigned_to: '', observations: '', file: null as File | null }); const [busy, setBusy] = useState(false)
+  async function submit(e: FormEvent) { e.preventDefault(); setBusy(true); try { const created = await createTechnicalEvaluation({ asset_id: Number(form.asset_id), reason: form.reason, assigned_to: form.assigned_to ? Number(form.assigned_to) : null, observations: form.observations }); if (form.file) await uploadTechnicalEvaluationDocument(created.id, form.file); setForm({ asset_id: '', reason: '', assigned_to: '', observations: '', file: null }); onChanged() } finally { setBusy(false) } }
+  async function advance(row: TechnicalEvaluation) { setBusy(true); try { const status = row.status === 'requested' ? 'assigned' : row.status === 'assigned' ? 'evaluated' : 'reviewed'; await updateTechnicalEvaluation(row.id, { status, physical_condition: 'En evaluación', diagnosis: 'Diagnóstico registrado en prototipo', recommendations: 'Revisar según informe técnico', observations: row.observations }); onChanged() } finally { setBusy(false) } }
+  return <div className="grid gap-5"><SectionHeading description="Evaluaciones vinculadas a activos; una recomendación no cambia automáticamente el estado patrimonial." title="Evaluación técnica" />{canCreate&&<form className="grid gap-2 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 md:grid-cols-4" onSubmit={(e)=>void submit(e)}><select className="rounded-lg border p-2 text-sm" required value={form.asset_id} onChange={e=>setForm({...form,asset_id:e.target.value})}><option value="">Activo</option>{assetOptions.filter(a=>a.is_active).map(a=><option key={a.id} value={a.id}>{a.asset_code} · {a.name}</option>)}</select><input className="rounded-lg border p-2 text-sm" required placeholder="Motivo de evaluación" value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/>{canAssign&&<select className="rounded-lg border p-2 text-sm" value={form.assigned_to} onChange={e=>setForm({...form,assigned_to:e.target.value})}><option value="">Especialista (opcional)</option>{userOptions.filter(u=>u.is_active).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}<input className="rounded-lg border p-2 text-sm" placeholder="Observaciones" value={form.observations} onChange={e=>setForm({...form,observations:e.target.value})}/><input className="rounded-lg border bg-white p-2 text-xs" accept=".pdf,.jpg,.jpeg,.png,.webp" type="file" onChange={e=>setForm({...form,file:e.target.files?.[0]??null})}/><button className="rounded-lg bg-cyan-700 px-3 py-2 text-xs font-black text-white" disabled={busy} type="submit">Solicitar evaluación</button></form>}<DataTable headers={['Activo','Motivo','Especialista','Estado','Diagnóstico','Acción']}>{records.map(r=><tr className="border-t border-slate-100" key={r.id}><td className="px-5 py-4 font-black">{r.asset?.asset_code}<br/><span className="font-normal">{r.asset?.name}</span></td><td className="px-5 py-4 text-sm">{r.reason}</td><td className="px-5 py-4 text-sm">{r.specialist?.name??'Pendiente'}</td><td className="px-5 py-4 text-sm">{r.status}</td><td className="px-5 py-4 text-sm">{r.diagnosis??'—'}</td><td className="px-5 py-4">{canUpdate&&r.status!=='reviewed'&&<button className="text-xs font-black text-cyan-700" disabled={busy} onClick={()=>void advance(r)} type="button">Avanzar</button>}</td></tr>)}</DataTable></div>
+}
+
+function DisposalsContent({ records, assets: assetOptions, evaluations, canCreate, canReview, onChanged }: { readonly records: readonly DisposalRequest[]; readonly assets: readonly Asset[]; readonly evaluations: readonly TechnicalEvaluation[]; readonly canCreate: boolean; readonly canReview: boolean; readonly onChanged: () => void }) {
+  const [form, setForm] = useState({ asset_id: '', cause: '', reason: '', technical_evaluation_id: '', documentation_notes: '', file: null as File | null }); const [busy, setBusy] = useState(false)
+  async function submit(e: FormEvent) { e.preventDefault(); setBusy(true); try { const created = await createDisposalRequest(Number(form.asset_id), { cause: form.cause, reason: form.reason, technical_evaluation_id: form.technical_evaluation_id ? Number(form.technical_evaluation_id) : null, documentation_notes: form.documentation_notes }); if (form.file) await uploadDisposalDocument(created.id, form.file); setForm({ asset_id: '', cause: '', reason: '', technical_evaluation_id: '', documentation_notes: '', file: null }); onChanged() } finally { setBusy(false) } }
+  async function review(row: DisposalRequest, decision: 'pending_authority' | 'rejected') { setBusy(true); try { await reviewDisposalRequest(row.id, { decision, decision_notes: decision === 'rejected' ? 'Expediente observado en prototipo' : 'Expediente listo para validación de autoridad competente' }); onChanged() } finally { setBusy(false) } }
+  return <div className="grid gap-5"><SectionHeading description="La autoridad definitiva de baja no está acreditada; la aprobación y ejecución permanecen bloqueadas." title="Expedientes de baja patrimonial" />{canCreate&&<form className="grid gap-2 rounded-2xl border border-rose-100 bg-rose-50 p-4 md:grid-cols-4" onSubmit={(e)=>void submit(e)}><select className="rounded-lg border p-2 text-sm" required value={form.asset_id} onChange={e=>setForm({...form,asset_id:e.target.value})}><option value="">Activo</option>{assetOptions.filter(a=>a.is_active).map(a=><option key={a.id} value={a.id}>{a.asset_code} · {a.name}</option>)}</select><input className="rounded-lg border p-2 text-sm" required placeholder="Causal propuesta" value={form.cause} onChange={e=>setForm({...form,cause:e.target.value})}/><input className="rounded-lg border p-2 text-sm" required placeholder="Justificación" value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/><select className="rounded-lg border p-2 text-sm" value={form.technical_evaluation_id} onChange={e=>setForm({...form,technical_evaluation_id:e.target.value})}><option value="">Evaluación técnica (opcional)</option>{evaluations.map(v=><option key={v.id} value={v.id}>#{v.id} · {v.status}</option>)}</select><input className="rounded-lg border p-2 text-sm" placeholder="Documentación sustentatoria" value={form.documentation_notes} onChange={e=>setForm({...form,documentation_notes:e.target.value})}/><input className="rounded-lg border bg-white p-2 text-xs" accept=".pdf,.jpg,.jpeg,.png,.webp" type="file" onChange={e=>setForm({...form,file:e.target.files?.[0]??null})}/><button className="rounded-lg bg-rose-700 px-3 py-2 text-xs font-black text-white" disabled={busy} type="submit">Crear expediente</button></form>}<DataTable headers={['Activo','Causal','Estado','Autoridad','Solicitante','Acciones']}>{records.map(r=><tr className="border-t border-slate-100" key={r.id}><td className="px-5 py-4 font-black">{r.asset?.asset_code}<br/><span className="font-normal">{r.asset?.name}</span></td><td className="px-5 py-4 text-sm">{r.cause??'—'}</td><td className="px-5 py-4 text-sm">{r.status}</td><td className="px-5 py-4 text-sm">{r.authority_status}</td><td className="px-5 py-4 text-sm">{r.requester?.name??'—'}</td><td className="px-5 py-4">{canReview&&r.status==='pending'&&<><button className="mr-2 text-xs font-black text-emerald-700" disabled={busy} onClick={()=>void review(r,'pending_authority')} type="button">Enviar a autoridad</button><button className="text-xs font-black text-red-700" disabled={busy} onClick={()=>void review(r,'rejected')} type="button">Observar</button></>}</td></tr>)}</DataTable></div>
+}
+
+function ReportsContent({ initial, canExport }: { readonly initial: ReportResult | null; readonly canExport: boolean }) {
+  const [kind, setKind] = useState('assets'); const [result, setResult] = useState<ReportResult | null>(initial); const [busy, setBusy] = useState(false)
+  useEffect(() => { setResult(initial) }, [initial])
+  async function load() { setBusy(true); try { setResult(await reports(kind)) } finally { setBusy(false) } }
+  return <div className="grid gap-5"><SectionHeading description="Consultas calculadas desde datos reales del prototipo; se identifican como reportes no oficiales." title="Reportes y consultas" /><div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-4"><select className="rounded-lg border p-2 text-sm" value={kind} onChange={e=>setKind(e.target.value)}><option value="assets">Bienes patrimoniales</option><option value="custodians">Custodios</option><option value="movements">Movimientos</option><option value="inventory">Inventario</option><option value="reconciliations">Conciliaciones</option><option value="evaluations">Evaluaciones técnicas</option><option value="disposals">Expedientes de baja</option><option value="audit">Auditoría</option></select><button className="rounded-lg bg-[#174a86] px-3 py-2 text-xs font-black text-white" disabled={busy} onClick={()=>void load()} type="button">Consultar</button>{canExport&&<a className="rounded-lg border border-[#174a86] px-3 py-2 text-xs font-black text-[#174a86]" href={reportExportUrl(kind)}>Descargar CSV</a>}</div>{result&&<div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4"><p className="mb-3 text-xs font-bold text-slate-500">Reporte del prototipo · generado {new Date(result.generated_at).toLocaleString()}</p><DataTable headers={Object.keys(result.data[0]??{Resultado:'Sin registros'})}>{result.data.map((row,i)=><tr className="border-t border-slate-100" key={i}>{Object.values(row).map((value,j)=><td className="px-5 py-3 text-sm" key={j}>{String(value??'—')}</td>)}</tr>)}</DataTable></div>}</div>
+}
+
+function ReportsContentIntegrated({ initial, canExport }: { readonly initial: ReportResult | null; readonly canExport: boolean }) {
+  void ReportsContent
+  const [kind, setKind] = useState('assets'); const [result, setResult] = useState<ReportResult | null>(initial); const [busy, setBusy] = useState(false)
+  const [filters, setFilters] = useState({ asset_code: '', area_id: '', location_id: '', status: '', from: '', to: '' })
+  useEffect(() => setResult(initial), [initial])
+  const params = Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
+  async function load() { setBusy(true); try { setResult(await reports(kind, params)) } finally { setBusy(false) } }
+  return <div className="grid gap-5"><SectionHeading description="Consultas calculadas desde datos reales del prototipo; reportes no oficiales." title="Reportes y consultas" /><div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-4"><select className="rounded-lg border p-2 text-sm" value={kind} onChange={e=>setKind(e.target.value)}><option value="assets">Bienes patrimoniales</option><option value="custodians">Custodios</option><option value="movements">Movimientos</option><option value="inventory">Inventario</option><option value="reconciliations">Conciliaciones</option><option value="evaluations">Evaluaciones técnicas</option><option value="disposals">Expedientes de baja</option><option value="audit">Auditoría</option></select><input className="rounded-lg border p-2 text-sm" placeholder="Código patrimonial" value={filters.asset_code} onChange={e=>setFilters({...filters,asset_code:e.target.value})}/><input className="rounded-lg border p-2 text-sm" placeholder="Área ID" value={filters.area_id} onChange={e=>setFilters({...filters,area_id:e.target.value})}/><input className="rounded-lg border p-2 text-sm" placeholder="Ubicación ID" value={filters.location_id} onChange={e=>setFilters({...filters,location_id:e.target.value})}/><input className="rounded-lg border p-2 text-sm" placeholder="Estado" value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}/><input className="rounded-lg border p-2 text-sm" type="date" value={filters.from} onChange={e=>setFilters({...filters,from:e.target.value})}/><input className="rounded-lg border p-2 text-sm" type="date" value={filters.to} onChange={e=>setFilters({...filters,to:e.target.value})}/><div className="flex gap-2"><button className="rounded-lg bg-[#174a86] px-3 py-2 text-xs font-black text-white" disabled={busy} onClick={()=>void load()} type="button">Consultar</button>{canExport&&<a className="rounded-lg border border-[#174a86] px-3 py-2 text-xs font-black text-[#174a86]" href={reportExportUrl(kind, params)}>Descargar CSV</a>}</div></div>{result&&<div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4"><p className="mb-3 text-xs font-bold text-slate-500">Reporte del prototipo · {new Date(result.generated_at).toLocaleString()}</p><DataTable headers={Object.keys(result.data[0]??{Resultado:'Sin registros'})}>{result.data.map((row,i)=><tr className="border-t border-slate-100" key={i}>{Object.values(row).map((value,j)=><td className="px-5 py-3 text-sm" key={j}>{String(value??'—')}</td>)}</tr>)}</DataTable></div>}</div>
+}
 
 function DataTable({ headers, children }: { readonly headers: readonly string[]; readonly children: ReactNode }) {
   return (
@@ -1072,9 +1192,9 @@ function DataTable({ headers, children }: { readonly headers: readonly string[];
   )
 }
 
-function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLogout: () => void }) {
+function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: User; readonly initialAssetCode: string | null; readonly onLogout: () => void }) {
   const items = useMemo(() => navigationFor(user), [user])
-  const [section, setSection] = useState<SectionKey>(items[0]?.key ?? 'dashboard')
+  const [section, setSection] = useState<SectionKey>(initialAssetCode === null ? (items[0]?.key ?? 'dashboard') : 'assets')
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [assetRecords, setAssetRecords] = useState<readonly Asset[]>([])
   const [assetPagination, setAssetPagination] = useState<AssetPage['meta']>({ current_page: 1, last_page: 1, per_page: 12, total: 0 })
@@ -1088,6 +1208,10 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
   const [auditRecords, setAuditRecords] = useState<readonly AuditEvent[]>([])
   const [movementRecords, setMovementRecords] = useState<readonly MovementRequest[]>([])
   const [inventoryRecords, setInventoryRecords] = useState<readonly InventoryCampaign[]>([])
+  const [reconciliationRecords, setReconciliationRecords] = useState<readonly ReconciliationRun[]>([])
+  const [evaluationRecords, setEvaluationRecords] = useState<readonly TechnicalEvaluation[]>([])
+  const [disposalRecords, setDisposalRecords] = useState<readonly DisposalRequest[]>([])
+  const [reportResult, setReportResult] = useState<ReportResult | null>(null)
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
 
@@ -1109,8 +1233,12 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
       }
       if (section === 'areas') setAreaRecords(await areas())
       if (section === 'audit') setAuditRecords(await auditEvents())
-      if (section === 'movements') setMovementRecords(await movementRequests())
-      if (section === 'inventory') setInventoryRecords(await inventoryCampaigns())
+      if (section === 'movements') { const [m, a, ar, l] = await Promise.all([movementRequests(), assets(1), areas(), assetLocations()]); setMovementRecords(m); setAssetRecords(a.data); setAreaRecords(ar); setAssetLocationRecords(l) }
+      if (section === 'inventory') { const [i, a, ar, l] = await Promise.all([inventoryCampaigns(), assets(1), areas(), assetLocations()]); setInventoryRecords(i); setAssetRecords(a.data); setAreaRecords(ar); setAssetLocationRecords(l) }
+      if (section === 'reconciliation') setReconciliationRecords(await reconciliations())
+      if (section === 'evaluations') { const [e, a] = await Promise.all([technicalEvaluations(), assets(1)]); setEvaluationRecords(e); setAssetRecords(a.data); setUserRecords(user.permissions.includes('users.view') ? await users() : []) }
+      if (section === 'disposals') { const [d, a, e] = await Promise.all([disposalRequests(), assets(1), technicalEvaluations()]); setDisposalRecords(d); setAssetRecords(a.data); setEvaluationRecords(e) }
+      if (section === 'reports') setReportResult(await reports('assets'))
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -1130,7 +1258,7 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
         <div className="flex shrink-0 items-center gap-3 px-2 py-1"><Logo /><div className="min-w-0"><p className="truncate font-black tracking-tight">Gestión de activos</p><p className="mt-0.5 flex items-center gap-1.5 text-[10px] font-bold text-blue-100/60"><span className="size-1.5 rounded-full bg-emerald-400" />Sistema operativo</p></div></div>
         <nav aria-label="Navegación principal" className="sidebar-navigation mt-5 grid min-h-0 gap-1 sm:grid-cols-2 lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:pr-1">
           <p className="col-span-2 mb-1 px-3 text-[9px] font-black tracking-[0.2em] text-blue-200/50 lg:col-span-1">GESTIÓN</p>
-          {items.filter((item) => ['dashboard', 'assets', 'movements', 'inventory'].includes(item.key)).map((item) => (
+          {items.filter((item) => ['dashboard', 'assets', 'movements', 'inventory', 'reconciliation', 'evaluations', 'disposals', 'reports'].includes(item.key)).map((item) => (
             <button
               aria-current={section === item.key ? 'page' : undefined}
               className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-bold transition ${section === item.key ? 'bg-white text-[#12345f] shadow-lg shadow-black/10' : 'text-blue-100/75 hover:bg-white/[0.08] hover:text-white'}`}
@@ -1156,17 +1284,21 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
         </div>
       </aside>
 
-      <main className="min-w-0">
-        <header className="flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8 lg:px-10"><div><h1 className="text-base font-black text-slate-900">{activeItem?.label === 'Resumen' ? 'Panel general' : activeItem?.label ?? 'Acceso restringido'}</h1><p className="mt-0.5 hidden text-xs text-slate-400 sm:block">{activeItem?.description}</p></div><div className="flex items-center gap-2"><div className="grid size-9 place-items-center rounded-xl bg-[#174a86] text-xs font-black text-white">{user.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="hidden lg:block"><p className="text-xs font-black text-slate-800">{user.name}</p><p className="text-[10px] text-slate-500">{user.roles[0]?.name ?? user.job_title ?? user.email}</p></div></div>
+      <main className="dashboard-main min-w-0">
+        <header className="dashboard-header flex min-h-[72px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 sm:px-8 lg:px-10"><div><p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#174a86]">Sistema patrimonial</p><h1 className="text-base font-black text-slate-900">{activeItem?.label === 'Resumen' ? 'Panel general' : activeItem?.label ?? 'Acceso restringido'}</h1><p className="mt-0.5 hidden text-xs text-slate-400 sm:block">{activeItem?.description}</p></div><div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"><div className="grid size-9 place-items-center rounded-xl bg-[#174a86] text-xs font-black text-white">{user.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="hidden lg:block"><p className="text-xs font-black text-slate-800">{user.name}</p><p className="text-[10px] text-slate-500">{user.roles[0]?.name ?? user.job_title ?? user.email}</p></div></div>
         </header>
-        <div className="p-5 sm:p-8 lg:p-12">
+        <div className="dashboard-content p-5 sm:p-8 lg:p-10">
           {error && <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700" role="alert"><span>{error}</span><button className="font-black underline" onClick={() => void loadSection()} type="button">Reintentar</button></div>}
           {busy ? <LoadingPanel /> : (
             <>
               {section === 'dashboard' && metrics && <DashboardContent metrics={metrics} />}
-              {section === 'assets' && <AssetsContent areas={areaRecords} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} locations={assetLocationRecords} onChanged={() => void loadSection()} onPageChange={setAssetPage} pagination={assetPagination} records={assetRecords} registeredAreaName={user.area?.name ?? null} statuses={assetStatusRecords} />}
-              {section === 'movements' && <MovementsContent canApprove={user.permissions.includes('movements.approve')} canReceive={user.permissions.includes('movements.receive')} onChanged={() => void loadSection()} records={movementRecords} />}
-              {section === 'inventory' && <InventoryContent records={inventoryRecords} />}
+              {section === 'assets' && <AssetsContent areas={areaRecords} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} initialAssetCode={initialAssetCode} locations={assetLocationRecords} onChanged={() => void loadSection()} onPageChange={setAssetPage} pagination={assetPagination} records={assetRecords} registeredAreaName={user.area?.name ?? null} statuses={assetStatusRecords} />}
+              {section === 'movements' && <MovementsContent areas={areaRecords} assets={assetRecords} canApprove={user.permissions.includes('movements.approve')} canCreate={user.permissions.includes('movements.request')} canReceive={user.permissions.includes('movements.receive')} locations={assetLocationRecords} onChanged={() => void loadSection()} records={movementRecords} />}
+              {section === 'inventory' && <InventoryContent areas={areaRecords} assets={assetRecords} canCheck={user.permissions.includes('inventory.check')} canManage={user.permissions.includes('inventory.create') || user.permissions.includes('inventory.manage')} locations={assetLocationRecords} onChanged={() => void loadSection()} records={inventoryRecords} />}
+              {section === 'reconciliation' && <ReconciliationContent canCreate={user.permissions.includes('reconciliation.create')} canReview={user.permissions.includes('reconciliation.review')} onChanged={() => void loadSection()} records={reconciliationRecords} />}
+              {section === 'evaluations' && <EvaluationsContent assets={assetRecords} canAssign={user.permissions.includes('evaluations.assign')} canCreate={user.permissions.includes('evaluations.create')} canUpdate={user.permissions.includes('evaluations.update')} onChanged={() => void loadSection()} records={evaluationRecords} users={userRecords} />}
+              {section === 'disposals' && <DisposalsContent assets={assetRecords} canCreate={user.permissions.includes('disposals.request')} canReview={user.permissions.includes('disposals.review')} evaluations={evaluationRecords} onChanged={() => void loadSection()} records={disposalRecords} />}
+              {section === 'reports' && <ReportsContentIntegrated canExport={user.permissions.includes('reports.export')} initial={reportResult} />}
               {section === 'users' && <UsersContent areas={areaRecords} canCreate={user.permissions.includes('users.create') && user.permissions.includes('roles.assign')} canUpdate={user.permissions.includes('users.update') && user.permissions.includes('roles.assign')} currentUserId={user.id} onChanged={() => void loadSection()} records={userRecords} roles={roleRecords} />}
               {section === 'areas' && <AreasContent canManage={user.permissions.includes('areas.manage')} onChanged={() => void loadSection()} records={areaRecords} />}
           {section === 'audit' && <AuditContent canManage={user.permissions.includes('audit.manage')} records={auditRecords} />}
@@ -1180,6 +1312,8 @@ function DashboardShell({ user, onLogout }: { readonly user: User; readonly onLo
 
 function App() {
   const params = new URLSearchParams(window.location.search)
+  const pathAssetCode = window.location.pathname.startsWith('/activos/') ? decodeURIComponent(window.location.pathname.slice('/activos/'.length)) : null
+  const requestedAssetCode = params.get('asset') ?? pathAssetCode
   const resetToken = params.get('token') ?? ''
   const resetEmail = params.get('email') ?? ''
   const isResetPath = window.location.pathname === '/restablecer-contrasena' && resetToken !== '' && resetEmail !== ''
@@ -1216,7 +1350,7 @@ function App() {
   }
 
   if (user !== null) {
-    return <DashboardShell onLogout={() => void handleLogout()} user={user} />
+    return <DashboardShell initialAssetCode={requestedAssetCode} onLogout={() => void handleLogout()} user={user} />
   }
 
   if (view === 'mfa' && challenge !== null) {

@@ -7,6 +7,7 @@ import type {
   AssetLocation,
   AssetStatus,
   AuditEvent,
+  Custodianship,
   DashboardMetrics,
   MfaChallengeResponse,
   PaginatedResponse,
@@ -16,6 +17,12 @@ import type {
   UserInput,
   MovementRequest,
   InventoryCampaign,
+  InventoryCheck,
+  ReconciliationRun,
+  ReconciliationDifference,
+  TechnicalEvaluation,
+  DisposalRequest,
+  ReportResult,
 } from './types'
 
 interface ApiErrorPayload {
@@ -24,13 +31,9 @@ interface ApiErrorPayload {
 }
 
 const configuredApiBase = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/$/, '')
-// Keep the hosted demo usable if Railway saves a wrapped/truncated VITE_API_URL.
-const hostedBackendUrl = 'https://backendactivos-production-d5bc21c1.up.railway.app'
-const API_BASE = configuredApiBase === ''
-  || configuredApiBase === 'https://backendactivos-production.up.railway.app'
-  || configuredApiBase.startsWith('https://backendactivos-') && configuredApiBase !== hostedBackendUrl
-  ? hostedBackendUrl
-  : configuredApiBase
+// An empty value deliberately uses Vite's local /api proxy. Never fall back to
+// a hosted demo: a local test must fail locally instead of mutating Railway.
+const API_BASE = configuredApiBase
 
 let csrfToken: string | null = null
 
@@ -119,7 +122,14 @@ export async function login(
     },
   )
 
-  return 'requires_mfa' in response ? response : response.data
+  if ('requires_mfa' in response) {
+    return response
+  }
+
+  // CompleteLogin also regenerates the session for accounts without MFA.
+  await initializeCsrf()
+
+  return response.data
 }
 
 export async function verifyMfa(challengeId: string, code: string): Promise<User> {
@@ -127,6 +137,10 @@ export async function verifyMfa(challengeId: string, code: string): Promise<User
     method: 'POST',
     body: JSON.stringify({ challenge_id: challengeId, code }),
   })
+
+  // CompleteLogin regenerates the session and therefore the CSRF token.
+  // Refresh it before the first authenticated mutation after MFA.
+  await initializeCsrf()
 
   return response.data
 }
@@ -272,10 +286,31 @@ export async function assetLocations(): Promise<readonly AssetLocation[]> {
   return response.data
 }
 
+export async function assetCustodianships(assetId: number): Promise<readonly Custodianship[]> {
+  const response = await request<PaginatedResponse<Custodianship>>('/api/v1/assets/' + assetId + '/custodianships?per_page=50')
+  return response.data
+}
+
+export async function custodianshipCandidates(assetId: number): Promise<readonly User[]> {
+  const response = await request<{ readonly data: readonly User[] }>('/api/v1/assets/' + assetId + '/custodianship-candidates')
+  return response.data
+}
+
+export async function assignCustodian(assetId: number, userId: number, notes: string): Promise<Custodianship> {
+  const response = await request<ResourceResponse<Custodianship>>('/api/v1/assets/' + assetId + '/custodianships', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, notes: notes.trim() === '' ? null : notes.trim() }),
+  })
+  return response.data
+}
+
 export async function movementRequests(): Promise<readonly MovementRequest[]> {
   const response = await request<PaginatedResponse<MovementRequest>>('/api/v1/movement-requests?per_page=50')
   return response.data
 }
+
+export async function createMovement(input: { asset_id: number; to_area_id: number; to_location_id?: number | null; to_user_id?: number | null; reason: string }): Promise<MovementRequest> { const response = await request<ResourceResponse<MovementRequest>>('/api/v1/movement-requests', { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function movementRecipients(areaId: number): Promise<readonly User[]> { const response = await request<{ readonly data: readonly User[] }>(`/api/v1/movement-recipient-candidates?area_id=${areaId}`); return response.data }
 
 export async function decideMovement(id: number, decision: 'approved' | 'rejected', rejectionReason?: string): Promise<MovementRequest> {
   const response = await request<ResourceResponse<MovementRequest>>(`/api/v1/movement-requests/${id}/decide`, { method: 'POST', body: JSON.stringify({ decision, rejection_reason: rejectionReason }) })
@@ -291,6 +326,25 @@ export async function inventoryCampaigns(): Promise<readonly InventoryCampaign[]
   const response = await request<PaginatedResponse<InventoryCampaign>>('/api/v1/inventory-campaigns?per_page=50')
   return response.data
 }
+export async function createInventoryCampaign(input: { code: string; name: string; area_id: number; notes?: string }): Promise<InventoryCampaign> { const response = await request<ResourceResponse<InventoryCampaign>>('/api/v1/inventory-campaigns', { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function startInventoryCampaign(id: number): Promise<InventoryCampaign> { const response = await request<ResourceResponse<InventoryCampaign>>(`/api/v1/inventory-campaigns/${id}/start`, { method: 'POST' }); return response.data }
+export async function closeInventoryCampaign(id: number): Promise<InventoryCampaign> { const response = await request<ResourceResponse<InventoryCampaign>>(`/api/v1/inventory-campaigns/${id}/close`, { method: 'POST' }); return response.data }
+export async function recordInventoryCheck(id: number, input: { asset_id: number; result: string; observed_location_id?: number | null; notes?: string }): Promise<InventoryCheck> { const response = await request<ResourceResponse<InventoryCheck>>(`/api/v1/inventory-campaigns/${id}/checks`, { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function reconciliations(): Promise<readonly ReconciliationRun[]> { const response = await request<PaginatedResponse<ReconciliationRun>>('/api/v1/reconciliations?per_page=50'); return response.data }
+export async function reconciliationDetails(id: number): Promise<ReconciliationRun> { const response = await request<ResourceResponse<ReconciliationRun>>(`/api/v1/reconciliations/${id}`); return response.data }
+export async function createReconciliation(body: FormData): Promise<ReconciliationRun> { const response = await request<ResourceResponse<ReconciliationRun>>('/api/v1/reconciliations', { method: 'POST', body }); return response.data }
+export async function updateReconciliationDifference(id: number, status: string, resolution_notes?: string): Promise<ReconciliationDifference> { const response = await request<ResourceResponse<ReconciliationDifference>>(`/api/v1/reconciliation-differences/${id}`, { method: 'PATCH', body: JSON.stringify({ status, resolution_notes }) }); return response.data }
+
+export async function technicalEvaluations(): Promise<readonly TechnicalEvaluation[]> { const response = await request<PaginatedResponse<TechnicalEvaluation>>('/api/v1/technical-evaluations?per_page=50'); return response.data }
+export async function createTechnicalEvaluation(input: { asset_id: number; reason: string; assigned_to?: number | null; observations?: string }): Promise<TechnicalEvaluation> { const response = await request<ResourceResponse<TechnicalEvaluation>>('/api/v1/technical-evaluations', { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function updateTechnicalEvaluation(id: number, input: Record<string, unknown>): Promise<TechnicalEvaluation> { const response = await request<ResourceResponse<TechnicalEvaluation>>(`/api/v1/technical-evaluations/${id}`, { method: 'PUT', body: JSON.stringify(input) }); return response.data }
+export async function disposalRequests(): Promise<readonly DisposalRequest[]> { const response = await request<PaginatedResponse<DisposalRequest>>('/api/v1/disposal-requests?per_page=50'); return response.data }
+export async function createDisposalRequest(assetId: number, input: { reason: string; cause: string; technical_evaluation_id?: number | null; documentation_notes?: string }): Promise<DisposalRequest> { const response = await request<ResourceResponse<DisposalRequest>>(`/api/v1/assets/${assetId}/disposal-requests`, { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function reviewDisposalRequest(id: number, input: { decision: 'pending_authority' | 'rejected'; decision_notes: string }): Promise<DisposalRequest> { const response = await request<ResourceResponse<DisposalRequest>>(`/api/v1/disposal-requests/${id}/review`, { method: 'POST', body: JSON.stringify(input) }); return response.data }
+export async function uploadTechnicalEvaluationDocument(id: number, file: File): Promise<TechnicalEvaluation> { const body = new FormData(); body.append('file', file); return request<TechnicalEvaluation>(`/api/v1/technical-evaluations/${id}/documents`, { method: 'POST', body }) }
+export async function uploadDisposalDocument(id: number, file: File): Promise<DisposalRequest> { const body = new FormData(); body.append('file', file); return request<DisposalRequest>(`/api/v1/disposal-requests/${id}/documents`, { method: 'POST', body }) }
+export async function reports(report: string, params: Record<string, string> = {}): Promise<ReportResult> { const query = new URLSearchParams({ report, ...Object.fromEntries(Object.entries(params).filter(([,v]) => v !== '')) }); return request<ReportResult>(`/api/v1/reports?${query.toString()}`) }
+export function reportExportUrl(report: string, params: Record<string, string> = {}): string { const query = new URLSearchParams({ report, ...Object.fromEntries(Object.entries(params).filter(([,v]) => v !== '')) }); return `${API_BASE}/api/v1/reports/export.csv?${query.toString()}` }
 
 export async function createAsset(input: Record<string, unknown>): Promise<Asset> {
   const response = await request<ResourceResponse<Asset>>('/api/v1/assets', { method: 'POST', body: JSON.stringify(input) })
