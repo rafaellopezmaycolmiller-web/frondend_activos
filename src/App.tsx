@@ -977,7 +977,7 @@ function AssetDetails({ record, canAssign, onClose, onEdit }: { readonly record:
           <div className="grid content-start gap-4">
             <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-3 py-1 text-[10px] font-black ${record.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{record.is_active ? 'Activo vigente' : 'Activo inactivo'}</span><span className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-700"><span className={`size-2 rounded-full ${record.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{record.status.name}</span></div>
             <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Identificación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código patrimonial</dt><dd className="mt-1 text-sm font-black text-[#0a2146]">{record.asset_code}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tipo de bien</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.category.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">N.° de serie</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.serial_number ?? 'No registrado'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Código de inventario</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.inventory_code ?? 'No registrado'}</dd></div></dl></div>
-            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Asignación y ubicación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área que registró</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.registered_area?.name ?? 'No registrada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área designada</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.area.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ubicación física</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.location?.name ?? 'No especificada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Marca y modelo</dt><dd className="mt-1 text-sm font-bold text-slate-700">{[record.brand, record.model].filter(Boolean).join(' · ') || 'No registrados'}</dd></div></dl></div>
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Asignación y ubicación</p><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Registrado por</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.creator?.name ?? 'No identificado'}<span className="mt-0.5 block text-[11px] font-medium text-slate-400">{record.creator?.area ?? record.registered_area?.name ?? 'Área no registrada'}</span></dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Área designada</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.area.name}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ubicación física</dt><dd className="mt-1 text-sm font-bold text-slate-700">{record.location?.name ?? 'No especificada'}</dd></div><div><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Marca y modelo</dt><dd className="mt-1 text-sm font-bold text-slate-700">{[record.brand, record.model].filter(Boolean).join(' · ') || 'No registrados'}</dd></div></dl></div>
             <section aria-label="Custodia del activo" className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between gap-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#174a86]">Custodia y responsable vigente</p>{loadingCustody && <span className="text-[10px] font-bold text-slate-400">Cargando…</span>}</div>{custodianships.length === 0 && !loadingCustody && <p className="text-xs text-slate-500">No hay asignaciones registradas.</p>}{custodianships.map((custody) => <div className="rounded-xl border border-slate-100 bg-slate-50 p-3" key={custody.id}><div className="flex items-center justify-between gap-2"><strong className="text-sm text-slate-800">{custody.user?.name ?? 'Usuario #' + custody.user_id}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-black ${custody.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{custody.status === 'active' ? 'Vigente' : 'Terminada'}</span></div><p className="mt-1 text-[11px] text-slate-500">Desde {new Date(custody.started_at).toLocaleString()} {custody.ended_at ? '· hasta ' + new Date(custody.ended_at).toLocaleString() : ''}</p>{custody.notes && <p className="mt-1 text-xs text-slate-600">{custody.notes}</p>}</div>)}{canAssign && <div className="grid gap-2 border-t border-slate-100 pt-3"><label className="text-[10px] font-black uppercase tracking-wider text-slate-400" htmlFor="custodian-select">Asignar custodio del área</label><select className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" id="custodian-select" onChange={(event) => setSelectedUserId(event.target.value)} value={selectedUserId}><option value="">Seleccione una persona</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · {candidate.email}</option>)}</select><textarea className="min-h-16 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onChange={(event) => setNotes(event.target.value)} placeholder="Nota de la asignación (opcional)" value={notes} /><button className="h-10 rounded-lg bg-[#174a86] px-4 text-xs font-black text-white disabled:opacity-40" disabled={savingCustody || selectedUserId === ''} onClick={() => void saveCustody()} type="button">{savingCustody ? 'Guardando…' : 'Asignar custodio'}</button></div>}{custodyMessage && <p className="text-xs font-bold text-slate-600" role="status">{custodyMessage}</p>}</section>
             {record.description && <div className="rounded-2xl border border-slate-200 bg-white p-5"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">Observaciones</dt><dd className="mt-2 text-sm leading-6 text-slate-600">{record.description}</dd></div>}
             <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><button className="h-10 rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-200" onClick={onClose} type="button">Cerrar</button><button className="h-10 rounded-xl bg-[#174a86] px-5 text-sm font-black text-white transition hover:bg-[#0f376a]" onClick={onEdit} type="button">Editar activo</button></div>
@@ -988,12 +988,21 @@ function AssetDetails({ record, canAssign, onClose, onEdit }: { readonly record:
   )
 }
 
-function AssetsContent({ records, pagination, areas, categories, statuses, locations, registeredAreaName, initialAssetCode, canCreate, canUpdate, canUpload, onChanged, onPageChange }: { readonly records: readonly Asset[]; readonly pagination: AssetPage['meta']; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly registeredAreaName: string | null; readonly initialAssetCode: string | null; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void; readonly onPageChange: (page: number) => void }) {
+function AssetsContent({ records, pagination, areas, categories, statuses, locations, registeredAreaName, initialAssetCode, assetScope, canCreate, canUpdate, canUpload, onChanged, onPageChange, onScopeChange }: { readonly records: readonly Asset[]; readonly pagination: AssetPage['meta']; readonly areas: readonly Area[]; readonly categories: readonly AssetCategory[]; readonly statuses: readonly AssetStatus[]; readonly locations: readonly AssetLocation[]; readonly registeredAreaName: string | null; readonly initialAssetCode: string | null; readonly assetScope: 'all' | 'mine'; readonly canCreate: boolean; readonly canUpdate: boolean; readonly canUpload: boolean; readonly onChanged: () => void; readonly onPageChange: (page: number) => void; readonly onScopeChange: (scope: 'all' | 'mine') => void }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [target, setTarget] = useState<Asset | null>(null)
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (initialAssetCode !== null || editorOpen || detailsOpen) return
+    try {
+      if (localStorage.getItem('mdm-asset-editor-draft') !== null) setEditorOpen(true)
+    } catch {
+      // El almacenamiento local puede estar bloqueado por el navegador.
+    }
+  }, [])
 
   useEffect(() => {
     if (initialAssetCode === null || target !== null) return
@@ -1073,14 +1082,18 @@ function AssetsContent({ records, pagination, areas, categories, statuses, locat
             <span className="pointer-events-none absolute inset-y-0 left-0 grid w-11 place-items-center text-slate-400"><Icon className="size-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></Icon></span>
             <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, nombre, serie o categoría" value={search} />
           </div>
-          <span className="whitespace-nowrap text-xs font-bold text-slate-400">{visibleRecords.length} resultado(s)</span>
+          <select aria-label="Alcance de activos" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => onScopeChange(event.target.value as 'all' | 'mine')} value={assetScope}>
+            <option value="all">Todos los activos autorizados</option>
+            <option value="mine">Registrados por mí</option>
+          </select>
+          <span className="whitespace-nowrap text-xs font-bold text-slate-400">{pagination.total} resultado(s)</span>
         </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Fichas de activos">
         {visibleRecords.map((record) => (
-          <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
-            <div className="grid gap-3 p-2.5">
+          <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
+            <div className="grid h-full gap-3 p-2.5">
               {(() => {
                 const photo = record.documents?.find((document) => document.document_type === 'photo')
 
@@ -1097,9 +1110,9 @@ function AssetsContent({ records, pagination, areas, categories, statuses, locat
                 )
               })()}
 
-              <div className="min-w-0 px-1 pb-1">
+              <div className="flex min-w-0 flex-1 flex-col px-1 pb-1">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="truncate text-[15px] font-black leading-6 text-[#0a2146]" title={record.name}>{record.name}</h3>
+                  <h3 className="line-clamp-2 min-h-12 text-[15px] font-black leading-6 text-[#0a2146]" title={record.name}>{record.name}</h3>
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[9px] font-black text-slate-600" title={record.status.name}>
                     <span aria-hidden="true" className={`size-2 rounded-full ${record.is_active ? (statusTone[record.status.code] ?? 'bg-emerald-500') : 'bg-slate-400'}`} />
                     {record.status.name}
@@ -1110,7 +1123,7 @@ function AssetsContent({ records, pagination, areas, categories, statuses, locat
                   <div className="flex items-start justify-between gap-2"><dt className="pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">Destino</dt><dd className="max-w-[135px] rounded-md bg-slate-100 px-2 py-1 text-right text-[10px] font-black leading-4 text-slate-700" title={record.area.name}>{compactAreaName(record.area)}</dd></div>
                   <div className="flex items-center justify-between gap-3"><dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">N.° de serie</dt><dd className="truncate text-right text-xs font-bold text-slate-700">{record.serial_number ?? 'No registrado'}</dd></div>
                 </dl>
-                <div className="mt-3 grid grid-cols-2 gap-1.5"><button className="h-8 rounded-lg border border-slate-200 bg-white text-[11px] font-black text-[#174a86] transition hover:border-blue-200 hover:bg-blue-50" onClick={() => openDetails(record)} type="button">Ver más</button>{canUpdate && <button className="h-8 rounded-lg bg-[#174a86] text-[11px] font-black text-white shadow-md shadow-blue-950/10 transition hover:bg-[#0f376a]" onClick={() => openEditor(record)} type="button">Editar</button>}</div>
+                <div className="mt-auto grid grid-cols-2 gap-2 border-t border-slate-100 pt-3"><button className="h-8 rounded-lg border border-slate-200 bg-white text-[10px] font-black text-[#174a86] transition hover:border-blue-200 hover:bg-blue-50" onClick={() => openDetails(record)} type="button">Ver más</button>{canUpdate && <button className="h-8 rounded-lg bg-[#174a86] text-[10px] font-black text-white shadow-md shadow-blue-950/10 transition hover:bg-[#0f376a]" onClick={() => openEditor(record)} type="button">Editar</button>}</div>
               </div>
             </div>
           </article>
@@ -1125,7 +1138,7 @@ function AssetsContent({ records, pagination, areas, categories, statuses, locat
       </nav>}
       {detailsOpen && target !== null && <AssetDetails canAssign={canUpdate} onClose={() => setDetailsOpen(false)} onEdit={() => openEditor(target)} record={target} />}
       {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} onDetected={handleQrDetected} />}
-      {editorOpen && <AssetEditor areas={areas} canUpload={canUpload} categories={categories} locations={locations} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} registeredAreaName={registeredAreaName} statuses={statuses} />}
+      {editorOpen && <AssetEditor areas={areas} canUpload={canUpload} categories={categories} locations={locations} onClose={() => { setEditorOpen(false) }} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} registeredAreaName={registeredAreaName} statuses={statuses} />}
     </div>
   )
 }
@@ -1194,11 +1207,22 @@ function DataTable({ headers, children }: { readonly headers: readonly string[];
 
 function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: User; readonly initialAssetCode: string | null; readonly onLogout: () => void }) {
   const items = useMemo(() => navigationFor(user), [user])
-  const [section, setSection] = useState<SectionKey>(initialAssetCode === null ? (items[0]?.key ?? 'dashboard') : 'assets')
+  const sectionStorageKey = `mdm-active-section:${user.id}`
+  const [section, setSection] = useState<SectionKey>(() => {
+    if (initialAssetCode !== null) return 'assets'
+    try {
+      const saved = sessionStorage.getItem(sectionStorageKey) as SectionKey | null
+      if (saved !== null && items.some((item) => item.key === saved)) return saved
+    } catch {
+      // La navegación funciona aunque el navegador bloquee el almacenamiento.
+    }
+    return items[0]?.key ?? 'dashboard'
+  })
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [assetRecords, setAssetRecords] = useState<readonly Asset[]>([])
   const [assetPagination, setAssetPagination] = useState<AssetPage['meta']>({ current_page: 1, last_page: 1, per_page: 12, total: 0 })
   const [assetPage, setAssetPage] = useState(1)
+  const [assetScope, setAssetScope] = useState<'all' | 'mine'>('all')
   const [assetCategoryRecords, setAssetCategoryRecords] = useState<readonly AssetCategory[]>([])
   const [assetStatusRecords, setAssetStatusRecords] = useState<readonly AssetStatus[]>([])
   const [assetLocationRecords, setAssetLocationRecords] = useState<readonly AssetLocation[]>([])
@@ -1222,7 +1246,7 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
     try {
       if (section === 'dashboard') setMetrics(await dashboard())
       if (section === 'assets') {
-        const [nextAssets, nextAreas, nextCategories, nextStatuses, nextLocations] = await Promise.all([assets(assetPage), areas(), assetCategories(), assetStatuses(), assetLocations()])
+        const [nextAssets, nextAreas, nextCategories, nextStatuses, nextLocations] = await Promise.all([assets(assetPage, '', assetScope === 'mine'), areas(), assetCategories(), assetStatuses(), assetLocations()])
         setAssetRecords(nextAssets.data); setAssetPagination(nextAssets.meta); setAreaRecords(nextAreas); setAssetCategoryRecords(nextCategories); setAssetStatusRecords(nextStatuses); setAssetLocationRecords(nextLocations)
       }
       if (section === 'users') {
@@ -1244,11 +1268,17 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
     } finally {
       setBusy(false)
     }
-  }, [assetPage, section])
+  }, [assetPage, assetScope, section])
 
   useEffect(() => {
     void loadSection()
   }, [loadSection])
+
+  useEffect(() => {
+    try { sessionStorage.setItem(sectionStorageKey, section) } catch {
+      // No interrumpir el uso del sistema si el almacenamiento no está disponible.
+    }
+  }, [section, sectionStorageKey])
 
   const activeItem = items.find((item) => item.key === section) ?? items[0]
 
@@ -1292,7 +1322,7 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
           {busy ? <LoadingPanel /> : (
             <>
               {section === 'dashboard' && metrics && <DashboardContent metrics={metrics} />}
-              {section === 'assets' && <AssetsContent areas={areaRecords} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} initialAssetCode={initialAssetCode} locations={assetLocationRecords} onChanged={() => void loadSection()} onPageChange={setAssetPage} pagination={assetPagination} records={assetRecords} registeredAreaName={user.area?.name ?? null} statuses={assetStatusRecords} />}
+              {section === 'assets' && <AssetsContent areas={areaRecords} assetScope={assetScope} canCreate={user.permissions.includes('assets.create')} canUpdate={user.permissions.includes('assets.update')} canUpload={user.permissions.includes('asset_documents.upload')} categories={assetCategoryRecords} initialAssetCode={initialAssetCode} locations={assetLocationRecords} onScopeChange={(scope) => { setAssetScope(scope); setAssetPage(1) }} onChanged={() => void loadSection()} onPageChange={setAssetPage} pagination={assetPagination} records={assetRecords} registeredAreaName={user.area?.name ?? null} statuses={assetStatusRecords} />}
               {section === 'movements' && <MovementsContent areas={areaRecords} assets={assetRecords} canApprove={user.permissions.includes('movements.approve')} canCreate={user.permissions.includes('movements.request')} canReceive={user.permissions.includes('movements.receive')} locations={assetLocationRecords} onChanged={() => void loadSection()} records={movementRecords} />}
               {section === 'inventory' && <InventoryContent areas={areaRecords} assets={assetRecords} canCheck={user.permissions.includes('inventory.check')} canManage={user.permissions.includes('inventory.create') || user.permissions.includes('inventory.manage')} locations={assetLocationRecords} onChanged={() => void loadSection()} records={inventoryRecords} />}
               {section === 'reconciliation' && <ReconciliationContent canCreate={user.permissions.includes('reconciliation.create')} canReview={user.permissions.includes('reconciliation.review')} onChanged={() => void loadSection()} records={reconciliationRecords} />}

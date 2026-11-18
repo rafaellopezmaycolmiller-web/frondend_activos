@@ -49,7 +49,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
   readonly onSaved: () => void
 }) {
   const defaultStatusId = statuses.find((status) => status.code === 'OPERATIVO')?.id.toString() ?? ''
-  const [form, setForm] = useState({
+  const draftKey = 'mdm-asset-editor-draft'
+  const emptyForm = {
     assetCode: record?.asset_code ?? '',
     inventoryCode: record?.inventory_code ?? '',
     name: record?.name ?? '',
@@ -62,12 +63,40 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     serialNumber: record?.serial_number ?? '',
     description: record?.description ?? '',
     reason: '',
+  }
+  const [form, setForm] = useState(() => {
+    if (record !== null) return emptyForm
+    try {
+      const raw = localStorage.getItem(draftKey)
+      if (raw !== null) {
+        const saved = JSON.parse(raw) as { form?: Partial<typeof emptyForm>; isActive?: boolean }
+        return { ...emptyForm, ...(saved.form ?? {}) }
+      }
+    } catch {
+      // Si el navegador no permite leer el borrador, iniciar el formulario vacío.
+    }
+    return emptyForm
   })
-  const [isActive, setIsActive] = useState(record?.is_active ?? true)
+  const [isActive, setIsActive] = useState(() => {
+    if (record !== null) return record.is_active
+    try {
+      const raw = localStorage.getItem(draftKey)
+      return raw === null ? true : ((JSON.parse(raw) as { isActive?: boolean }).isActive ?? true)
+    } catch {
+      return true
+    }
+  })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(record?.documents?.find((document) => document.document_type === 'photo')?.url ?? null)
+
+  useEffect(() => {
+    if (record !== null) return
+    try { localStorage.setItem(draftKey, JSON.stringify({ form, isActive })) } catch {
+      // El formulario sigue funcionando aunque el almacenamiento esté deshabilitado.
+    }
+  }, [form, isActive, record])
 
   useEffect(() => {
     if (file === null) setPreview(record?.documents?.find((document) => document.document_type === 'photo')?.url ?? null)
@@ -149,6 +178,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
         await uploadAssetDocument(saved.id, 'photo', file)
       }
 
+      try { localStorage.removeItem(draftKey) } catch { /* almacenamiento no disponible */ }
       onSaved()
     } catch (caught) {
       setError(errorMessage(caught))
@@ -185,14 +215,14 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                 </div>
               </FormSection>
 
-              <FormSection description="El área registrada se toma automáticamente de su cuenta. Seleccione únicamente el destino y la ubicación del bien." step="02" title="Asignación del activo">
+              <FormSection description="La cuenta que registra queda identificada por separado del área donde se asignará físicamente el bien." step="02" title="Área y ubicación del activo">
                 <div className="grid gap-4">
                   <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
                     <span className="size-2 rounded-full bg-emerald-500" />
-                    Registrando desde el área: <strong className="text-[#174a86]">{registeredAreaName ?? 'Área no asignada'}</strong>
+                    Área que registra (cuenta actual): <strong className="text-[#174a86]">{registeredAreaName ?? 'Área no asignada'}</strong>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6">
-                  {select('Área designada', 'areaId', areas.filter((item) => item.is_active && item.code !== 'MDM').map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
+                  {select('Área destino / responsable patrimonial', 'areaId', areas.filter((item) => item.is_active && item.code !== 'MDM').map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
                   {select('Ubicación física dentro del área', 'locationId', activeLocations.map((item) => ({ id: item.id, label: item.name })), false)}
                   </div>
                 </div>
@@ -246,7 +276,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
           {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
 
           <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-            <button className="h-11 rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-200" onClick={onClose} type="button">Cancelar</button>
+            <button className="h-11 rounded-xl px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-200" onClick={() => { try { localStorage.removeItem(draftKey) } catch { /* almacenamiento no disponible */ } onClose() }} type="button">Cancelar</button>
             <button className="h-11 rounded-xl bg-[#174a86] px-7 text-sm font-black text-white shadow-lg shadow-blue-950/15 transition hover:bg-[#0f376a] disabled:cursor-wait disabled:opacity-60" disabled={busy} type="submit">{busy ? 'Guardando…' : record === null ? 'Registrar activo' : 'Guardar cambios'}</button>
           </div>
         </form>
