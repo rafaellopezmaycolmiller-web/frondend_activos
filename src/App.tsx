@@ -157,7 +157,7 @@ function AuthLayout({
             <p className="mx-auto max-w-[520px] text-2xl font-bold leading-tight tracking-[-0.02em] text-white xl:text-3xl">Sistema de Gestión de Activos <span className="text-[#f5c84c]">Morales</span></p>
             <div className="mx-auto my-3 h-0.5 w-32 rounded-full bg-[#f5c84c]" />
             <div className="mb-4 flex justify-center">
-              <div className="grid size-52 place-items-center rounded-[32px] border border-white/30 bg-white p-4 shadow-2xl shadow-black/20 xl:size-60">
+              <div className="grid size-52 place-items-center p-2 xl:size-60">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
             </div>
