@@ -152,12 +152,12 @@ function AuthLayout({
         Saltar al formulario
       </a>
       <div className="grid min-h-screen lg:h-screen lg:overflow-hidden lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
-        <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-10 text-white lg:flex lg:flex-col xl:px-18 xl:py-14">
-          <div className="relative z-10 mt-2 mb-auto max-w-[680px] py-2 text-center xl:mt-0">
+        <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-4 text-white lg:flex lg:flex-col xl:px-18 xl:py-5">
+          <div className="relative z-10 mt-0 mb-auto max-w-[680px] py-0 text-center">
             <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
             <p className="mx-auto mt-3 max-w-[620px] text-4xl font-black leading-tight tracking-[-0.04em] text-white xl:text-5xl">Gestión de Activos de la Municipalidad Distrital de <span className="text-[#f5c84c]">Morales</span></p>
-            <div className="mx-auto my-7 h-1 w-56 rounded-full bg-gradient-to-r from-[#f5c84c] via-white to-[#f5c84c]" />
-            <div className="mb-8 flex justify-center">
+            <div className="mx-auto my-4 h-1 w-56 rounded-full bg-gradient-to-r from-[#f5c84c] via-white to-[#f5c84c]" />
+            <div className="mb-5 flex justify-center">
               <div className="grid size-60 place-items-center rounded-[40px] border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm xl:size-72">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
@@ -166,7 +166,7 @@ function AuthLayout({
               Centralice el registro, ubicación e historial de los bienes institucionales en una plataforma segura y trazable.
             </p>
 
-            <div className="mx-auto mt-5 grid max-w-[640px] gap-3 sm:grid-cols-3">
+            <div className="mx-auto mt-4 grid max-w-[640px] gap-3 sm:grid-cols-3">
               {[
                 ['01', 'Inventario centralizado'],
                 ['02', 'Trazabilidad de cambios'],
