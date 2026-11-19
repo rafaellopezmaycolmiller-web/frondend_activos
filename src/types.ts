@@ -116,6 +116,16 @@ export interface UserInput {
   readonly password?: string
   readonly password_confirmation?: string
 }
+export interface AccessRecoveryRequest {
+  readonly id: number
+  readonly email: string
+  readonly status: 'pending' | 'approved' | 'rejected'
+  readonly created_at: string
+  readonly resolved_at: string | null
+  readonly resolution_note: string | null
+  readonly user: User
+  readonly resolver: Pick<User, 'id' | 'name' | 'email'> | null
+}
 
 export interface AreaInput {
   readonly parent_id: number | null

@@ -32,7 +32,9 @@ import {
   movementRequests,
   inventoryCampaigns,
   receiveMovement,
-  requestPasswordReset,
+  requestAccessRecovery,
+  accessRecoveryRequests,
+  resolveAccessRecovery,
   resetPassword,
   roles,
   users,
@@ -140,10 +142,12 @@ function NavigationIcon({ section }: { readonly section: SectionKey }) {
 function AuthLayout({
   title,
   subtitle,
+  showBadge = true,
   children,
 }: {
   readonly title: string
   readonly subtitle: string
+  readonly showBadge?: boolean
   readonly children: ReactNode
 }) {
   return (
@@ -154,10 +158,10 @@ function AuthLayout({
       <div className="grid min-h-screen lg:h-screen lg:overflow-hidden lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
         <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-4 text-white lg:flex lg:flex-col xl:px-18 xl:py-5">
           <div className="relative z-10 mt-0 mb-auto max-w-[680px] py-0 text-center">
-            <p className="mx-auto max-w-[520px] text-2xl font-bold leading-tight tracking-[-0.02em] text-white xl:text-3xl">Sistema de Gestión de Activos <span className="text-[#f5c84c]">Morales</span></p>
-            <div className="mx-auto my-3 h-0.5 w-32 rounded-full bg-[#f5c84c]" />
+            <p className="mx-auto max-w-[560px] text-3xl font-bold leading-tight tracking-[-0.025em] text-white xl:text-4xl">Sistema de Gestión de Activos <span className="text-[#f5c84c]">Morales</span></p>
+            <div className="mx-auto my-3 h-0.5 w-40 rounded-full bg-[#f5c84c]" />
             <div className="mb-4 flex justify-center">
-              <div className="grid size-52 place-items-center p-2 xl:size-60">
+              <div className="grid size-72 place-items-center p-1 xl:size-80">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
             </div>
@@ -167,22 +171,20 @@ function AuthLayout({
 
             <div className="mx-auto mt-4 grid max-w-[640px] gap-3 sm:grid-cols-3">
               {[
-                ['01', 'Inventario centralizado'],
-                ['02', 'Trazabilidad de cambios'],
-                ['03', 'Acceso por funciones'],
-              ].map(([number, label]) => (
-                <div className="rounded-2xl border border-blue-400/55 bg-[#063b86]/65 p-4 shadow-[0_0_24px_rgba(27,145,255,0.18)] backdrop-blur-sm" key={number}>
-                  <span className="text-[10px] font-black tracking-widest text-[#f5c84c]">{number}</span>
-                  <p className="mt-2 text-sm font-bold leading-5 text-blue-50">{label}</p>
+                ['01', 'Inventario centralizado', 'M12 3v18M3 12h18'],
+                ['02', 'Trazabilidad de cambios', 'M4 12a8 8 0 1 0 16 0M12 4v8l4 2'],
+                ['03', 'Acceso por funciones', 'M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z'],
+              ].map(([number, label, path]) => (
+                <div className="group rounded-2xl border border-blue-300/45 bg-white/[0.09] p-4 text-center shadow-[0_10px_28px_rgba(0,0,0,0.16)] backdrop-blur-sm transition-colors hover:bg-white/[0.14]" key={number}>
+                  <div className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl border border-white/35 bg-white/10 text-white shadow-lg shadow-black/15">
+                    <Icon className="size-9"><path d={path} /></Icon>
+                  </div>
+                  <p className="text-base font-bold leading-5 text-blue-50">{label}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <footer className="relative z-10 flex items-center gap-3 border-t border-white/10 pt-4 text-xs text-blue-100/55">
-            <Icon className="size-4"><path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9.5 12 1.6 1.6 3.7-4" /></Icon>
-            Plataforma de uso exclusivo para personal autorizado
-          </footer>
         </section>
 
         <section className="relative flex min-h-screen items-center justify-center overflow-y-auto bg-[#f5f8fc] p-5 sm:p-10 lg:h-screen lg:overflow-hidden lg:p-12">
@@ -190,10 +192,10 @@ function AuthLayout({
             <div className="mb-6 flex justify-center lg:hidden">
               <img alt="Escudo de la Municipalidad Distrital de Morales" className="size-28 object-contain" src="/logo-morales.png" />
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-5 py-2 text-[11px] font-black tracking-[0.12em] text-[#1e5ca8]"><Icon className="size-4"><rect height="9" rx="1.5" width="12" x="6" y="10" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon>ACCESO INSTITUCIONAL</span>
-            <h2 className="mt-6 text-4xl font-black tracking-[-0.045em] text-slate-950 sm:text-[2.8rem]">{title}</h2>
-            <div className="mt-5 h-1 w-24 rounded-full bg-[#f5c84c]" />
-            <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{subtitle}</p>
+            {showBadge && <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-5 py-2 text-[11px] font-black tracking-[0.12em] text-[#1e5ca8]"><Icon className="size-4"><rect height="9" rx="1.5" width="12" x="6" y="10" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon>ACCESO INSTITUCIONAL</span>}
+            <h2 className="mt-6 text-center text-4xl font-black tracking-[-0.045em] text-slate-950 sm:text-[2.8rem]">{title}</h2>
+            <div className="mx-auto mt-5 h-1 w-24 rounded-full bg-[#f5c84c]" />
+            {subtitle && <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{subtitle}</p>}
             <div className="mt-8" id="formulario-acceso">{children}</div>
             <div className="mt-8 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-400">
               ¿Necesita ayuda para ingresar? Comuníquese con el área de TI.
@@ -315,7 +317,7 @@ export function LoginView({
   }
 
   return (
-    <AuthLayout title="Bienvenido" subtitle="Ingrese con su cuenta institucional para acceder al control de activos municipales.">
+    <AuthLayout showBadge={false} title="Bienvenido" subtitle="">
       <form className="grid gap-5" onSubmit={submit}>
         <Field autoComplete="username" inputMode="email" label="Correo institucional" onChange={setEmail} placeholder="nombre@moralesmuni.gob.pe" type="email" value={email} />
         <Field autoComplete="current-password" label="Contraseña" onChange={setPassword} placeholder="Ingrese su contraseña" type="password" value={password} />
@@ -390,7 +392,7 @@ function ForgotView({ onBack }: { readonly onBack: () => void }) {
     setError('')
 
     try {
-      setMessage(await requestPasswordReset(email))
+      setMessage(await requestAccessRecovery(email))
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -399,12 +401,12 @@ function ForgotView({ onBack }: { readonly onBack: () => void }) {
   }
 
   return (
-    <AuthLayout title="Recupere su acceso" subtitle="Si el correo pertenece a una cuenta vigente, recibirá un enlace temporal.">
+    <AuthLayout title="Recupere su acceso" subtitle="La solicitud será revisada por el área de TI y atendida por un administrador autorizado.">
       <form className="grid gap-5" onSubmit={submit}>
         <Field autoComplete="email" inputMode="email" label="Correo de acceso" onChange={setEmail} type="email" value={email} />
         {message && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-700" role="status">{message}</p>}
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
-        <PrimaryButton busy={busy}>Enviar instrucciones</PrimaryButton>
+        <PrimaryButton busy={busy}>Enviar solicitud a TI</PrimaryButton>
         <button className="text-sm font-bold text-slate-500 hover:text-[#1e4f97]" onClick={onBack} type="button">Volver al inicio</button>
       </form>
     </AuthLayout>
@@ -495,18 +497,30 @@ function initials(name: string): string {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
 }
 
-function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpdate, onChanged }: {
+function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpdate, canManageRecovery, onChanged }: {
   readonly records: readonly User[]
   readonly areas: readonly Area[]
   readonly roles: readonly Role[]
   readonly currentUserId: number
   readonly canCreate: boolean
   readonly canUpdate: boolean
+  readonly canManageRecovery: boolean
   readonly onChanged: () => void
 }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [target, setTarget] = useState<User | null>(null)
   const [search, setSearch] = useState('')
+  const [recoveryRequests, setRecoveryRequests] = useState<Awaited<ReturnType<typeof accessRecoveryRequests>>>([])
+
+  useEffect(() => {
+    if (canManageRecovery) void accessRecoveryRequests().then(setRecoveryRequests).catch(() => setRecoveryRequests([]))
+  }, [canManageRecovery])
+
+  async function resolveRecovery(id: number, status: 'approved' | 'rejected'): Promise<void> {
+    const result = await resolveAccessRecovery(id, status)
+    if (result.temporary_password) window.alert(`Contraseña temporal de un solo uso:\n${result.temporary_password}\n\nEntréguela por un canal institucional verificado.`)
+    setRecoveryRequests(await accessRecoveryRequests())
+  }
 
   function openEditor(record: User | null) {
     setTarget(record)
@@ -535,6 +549,17 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
           <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, perfil, correo o área" value={search} />
         </label>
       </section>
+
+      {canManageRecovery && recoveryRequests.some((item) => item.status === 'pending') && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+        <h3 className="font-black text-amber-950">Solicitudes de recuperación de acceso</h3>
+        <p className="mt-1 text-sm text-amber-800">Solo TI puede atender estas solicitudes. Nunca se muestra la contraseña actual.</p>
+        <div className="mt-3 grid gap-2">
+          {recoveryRequests.filter((item) => item.status === 'pending').map((item) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white p-3" key={item.id}>
+            <div><p className="font-black text-slate-800">{item.user.name}</p><p className="text-xs text-slate-500">{item.email} · {item.user.area?.name ?? 'Sin área'}</p></div>
+            <div className="flex gap-2"><button className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-black text-white" onClick={() => void resolveRecovery(item.id, 'approved')} type="button">Aprobar restablecimiento</button><button className="rounded-lg border border-red-200 px-3 py-2 text-xs font-black text-red-700" onClick={() => void resolveRecovery(item.id, 'rejected')} type="button">Rechazar</button></div>
+          </div>)}
+        </div>
+      </section>}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Directorio de usuarios">
         {visibleRecords.map((record) => {
@@ -1317,7 +1342,7 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
               {section === 'evaluations' && <EvaluationsContent assets={assetRecords} canAssign={user.permissions.includes('evaluations.assign')} canCreate={user.permissions.includes('evaluations.create')} canUpdate={user.permissions.includes('evaluations.update')} onChanged={() => void loadSection()} records={evaluationRecords} users={userRecords} />}
               {section === 'disposals' && <DisposalsContent assets={assetRecords} canCreate={user.permissions.includes('disposals.request')} canReview={user.permissions.includes('disposals.review')} evaluations={evaluationRecords} onChanged={() => void loadSection()} records={disposalRecords} />}
               {section === 'reports' && <ReportsContentIntegrated canExport={user.permissions.includes('reports.export')} initial={reportResult} />}
-              {section === 'users' && <UsersContent areas={areaRecords} canCreate={user.permissions.includes('users.create') && user.permissions.includes('roles.assign')} canUpdate={user.permissions.includes('users.update') && user.permissions.includes('roles.assign')} currentUserId={user.id} onChanged={() => void loadSection()} records={userRecords} roles={roleRecords} />}
+              {section === 'users' && <UsersContent areas={areaRecords} canCreate={user.permissions.includes('users.create') && user.permissions.includes('roles.assign')} canManageRecovery={user.permissions.includes('access_recovery.manage')} canUpdate={user.permissions.includes('users.update') && user.permissions.includes('roles.assign')} currentUserId={user.id} onChanged={() => void loadSection()} records={userRecords} roles={roleRecords} />}
               {section === 'areas' && <AreasContent canManage={user.permissions.includes('areas.manage')} onChanged={() => void loadSection()} records={areaRecords} />}
           {section === 'audit' && <AuditContent canManage={user.permissions.includes('audit.manage')} records={auditRecords} />}
             </>

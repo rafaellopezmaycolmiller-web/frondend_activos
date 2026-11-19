@@ -6,6 +6,7 @@ import type {
   AssetCategory,
   AssetLocation,
   AssetStatus,
+  AccessRecoveryRequest,
   AuditEvent,
   Custodianship,
   DashboardMetrics,
@@ -161,6 +162,28 @@ export async function requestPasswordReset(email: string): Promise<string> {
   )
 
   return response.message
+}
+
+export async function requestAccessRecovery(email: string): Promise<string> {
+  await initializeCsrf()
+  const response = await request<{ readonly message: string }>('/api/v1/auth/access-recovery-requests', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+  return response.message
+}
+
+export async function accessRecoveryRequests(): Promise<readonly AccessRecoveryRequest[]> {
+  const response = await request<{ readonly data: readonly AccessRecoveryRequest[] }>('/api/v1/access-recovery-requests')
+  return response.data
+}
+
+export async function resolveAccessRecovery(id: number, status: 'approved' | 'rejected', resolutionNote = ''): Promise<{ readonly message: string; readonly temporary_password: string | null }> {
+  const response = await request<{ readonly message: string; readonly temporary_password: string | null }>(`/api/v1/access-recovery-requests/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, resolution_note: resolutionNote }),
+  })
+  return response
 }
 
 export async function resetPassword(
