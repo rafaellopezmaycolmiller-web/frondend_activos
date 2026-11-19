@@ -154,15 +154,14 @@ function AuthLayout({
       <div className="grid min-h-screen lg:h-screen lg:overflow-hidden lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
         <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-4 text-white lg:flex lg:flex-col xl:px-18 xl:py-5">
           <div className="relative z-10 mt-0 mb-auto max-w-[680px] py-0 text-center">
-            <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
-            <p className="mx-auto mt-3 max-w-[620px] text-4xl font-black leading-tight tracking-[-0.04em] text-white xl:text-5xl">Gestión de Activos de la Municipalidad Distrital de <span className="text-[#f5c84c]">Morales</span></p>
-            <div className="mx-auto my-4 h-1 w-56 rounded-full bg-gradient-to-r from-[#f5c84c] via-white to-[#f5c84c]" />
-            <div className="mb-5 flex justify-center">
-              <div className="grid size-60 place-items-center rounded-[40px] border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm xl:size-72">
+            <p className="mx-auto max-w-[520px] text-2xl font-bold leading-tight tracking-[-0.02em] text-white xl:text-3xl">Sistema de Gestión de Activos <span className="text-[#f5c84c]">Morales</span></p>
+            <div className="mx-auto my-3 h-0.5 w-32 rounded-full bg-[#f5c84c]" />
+            <div className="mb-4 flex justify-center">
+              <div className="grid size-52 place-items-center rounded-[32px] border border-white/30 bg-white p-4 shadow-2xl shadow-black/20 xl:size-60">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
             </div>
-            <p className="mx-auto max-w-[570px] text-sm leading-6 text-blue-100/75">
+            <p className="mx-auto max-w-[520px] text-sm leading-6 text-blue-100/75">
               Centralice el registro, ubicación e historial de los bienes institucionales en una plataforma segura y trazable.
             </p>
 
