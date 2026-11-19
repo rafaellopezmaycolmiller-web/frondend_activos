@@ -161,30 +161,26 @@ function AuthLayout({
             </div>
           </header>
 
-          <div className="relative z-10 my-auto max-w-[610px] py-16">
-            <div className="mb-8 flex items-center gap-5">
-              <div className="grid size-28 shrink-0 place-items-center rounded-[28px] border border-white/20 bg-white/10 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm">
+          <div className="relative z-10 my-auto max-w-[680px] py-10 text-center">
+            <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
+            <p className="mx-auto mt-3 max-w-[620px] text-4xl font-black leading-tight tracking-[-0.04em] text-white xl:text-5xl">Gestión de Activos de la Municipalidad Distrital de <span className="text-[#f5c84c]">Morales</span></p>
+            <div className="mx-auto my-7 h-1 w-56 rounded-full bg-gradient-to-r from-[#f5c84c] via-white to-[#f5c84c]" />
+            <div className="mb-8 flex justify-center">
+              <div className="grid size-44 place-items-center rounded-[34px] border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
-              <div>
-                <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
-                <p className="mt-2 text-sm font-bold leading-6 text-blue-100/75">Sistema de gestión y control de activos municipales</p>
-              </div>
             </div>
-            <h1 className="mt-5 max-w-[570px] text-4xl font-black leading-[1.08] tracking-[-0.04em] xl:text-5xl">
-              Gestión clara de los activos municipales.
-            </h1>
-            <p className="mt-6 max-w-[550px] text-base leading-7 text-blue-100/75">
+            <p className="mx-auto max-w-[570px] text-base leading-7 text-blue-100/75">
               Centralice el registro, ubicación e historial de los bienes institucionales en una plataforma segura y trazable.
             </p>
 
-            <div className="mt-10 grid max-w-[570px] gap-3 sm:grid-cols-3">
+            <div className="mx-auto mt-10 grid max-w-[640px] gap-3 sm:grid-cols-3">
               {[
                 ['01', 'Inventario centralizado'],
                 ['02', 'Trazabilidad de cambios'],
                 ['03', 'Acceso por funciones'],
               ].map(([number, label]) => (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm" key={number}>
+                <div className="rounded-2xl border border-blue-400/55 bg-[#063b86]/65 p-4 shadow-[0_0_24px_rgba(27,145,255,0.18)] backdrop-blur-sm" key={number}>
                   <span className="text-[10px] font-black tracking-widest text-[#f5c84c]">{number}</span>
                   <p className="mt-2 text-sm font-bold leading-5 text-blue-50">{label}</p>
                 </div>
@@ -207,8 +203,9 @@ function AuthLayout({
                 <p className="mt-1 font-extrabold text-[#102a56]">Morales</p>
               </div>
             </div>
-            <p className="text-[11px] font-black tracking-[0.18em] text-[#1e5ca8]">ACCESO INSTITUCIONAL</p>
-            <h2 className="mt-4 text-3xl font-black tracking-[-0.035em] text-slate-950 sm:text-[2.15rem]">{title}</h2>
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-5 py-2 text-[11px] font-black tracking-[0.12em] text-[#1e5ca8]"><Icon className="size-4"><rect height="9" rx="1.5" width="12" x="6" y="10" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon>ACCESO INSTITUCIONAL</span>
+            <h2 className="mt-6 text-4xl font-black tracking-[-0.045em] text-slate-950 sm:text-[2.8rem]">{title}</h2>
+            <div className="mt-5 h-1 w-24 rounded-full bg-[#f5c84c]" />
             <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">{subtitle}</p>
             <div className="mt-8" id="formulario-acceso">{children}</div>
             <div className="mt-8 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-400">
@@ -290,7 +287,7 @@ function PrimaryButton({ children, busy }: { readonly children: ReactNode; reado
       disabled={busy}
       type="submit"
     >
-      {busy ? 'Procesando…' : <>{children}<Icon className="size-4 transition group-hover:translate-x-0.5"><path d="m9 5 7 7-7 7" /></Icon></>}
+      {busy ? 'Procesando…' : <><Icon className="size-5"><path d="M9 8V5l-5 5 5 5v-3h6a3 3 0 0 1 3 3v1" /><path d="M19 18v1H8" /></Icon>{children}</>}
     </button>
   )
 }
