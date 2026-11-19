@@ -510,6 +510,7 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
   const [editorOpen, setEditorOpen] = useState(false)
   const [target, setTarget] = useState<User | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedPrincipalId, setSelectedPrincipalId] = useState<number | null>(null)
   const [recoveryRequests, setRecoveryRequests] = useState<Awaited<ReturnType<typeof accessRecoveryRequests>>>([])
 
   useEffect(() => {
@@ -527,7 +528,13 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
     setEditorOpen(true)
   }
 
-  const visibleRecords = records.filter((record) => [record.name, record.email, record.job_title, record.area?.name, ...record.roles.map((role) => role.name)].filter(Boolean).join(' ').toLowerCase().includes(search.trim().toLowerCase()))
+  const matchesSearch = (record: User): boolean => [record.name, record.email, record.job_title, record.area?.name, ...record.roles.map((role) => role.name)].filter(Boolean).join(' ').toLowerCase().includes(search.trim().toLowerCase())
+  const principalRoleCodes = ['administrador_tecnico', 'jefe_patrimonio', 'oci_auditor']
+  const assistantRoleCodes = ['asistente_ti', 'asistente_patrimonio', 'asistente_oci']
+  const principals = records.filter((record) => record.roles.some((role) => principalRoleCodes.includes(role.code)) && matchesSearch(record))
+  const assistants = records.filter((record) => record.roles.some((role) => assistantRoleCodes.includes(role.code)))
+  const selectedPrincipal = principals.find((record) => record.id === selectedPrincipalId) ?? null
+  const selectedAssistants = selectedPrincipal === null ? [] : assistants.filter((assistant) => assistant.area?.id === selectedPrincipal.area?.id)
   const activeUsers = records.filter((record) => record.is_active).length
   const representedAreas = new Set(records.map((record) => record.area?.id).filter((id): id is number => id !== undefined)).size
 
@@ -561,8 +568,8 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
         </div>
       </section>}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Directorio de usuarios">
-        {visibleRecords.map((record) => {
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Cuentas principales">
+        {principals.map((record) => {
           const isCurrent = record.id === currentUserId
           return (
             <article className="group flex min-h-72 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
@@ -584,6 +591,9 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
               </dl>
 
               <div className="mt-auto pt-5">
+                <button className="mb-2 h-10 w-full rounded-xl border border-[#d8e5f5] bg-[#f5f9ff] text-xs font-black text-[#174a86] transition hover:bg-blue-100" onClick={() => setSelectedPrincipalId(record.id)} type="button">
+                  Ver asistentes
+                </button>
                 {canUpdate && !isCurrent && <button className="h-10 w-full rounded-xl border border-blue-100 bg-blue-50/60 text-xs font-black text-[#174a86] transition hover:border-blue-200 hover:bg-blue-100" onClick={() => openEditor(record)} type="button">Administrar usuario</button>}
                 {isCurrent && <div className="grid h-10 place-items-center rounded-xl border border-slate-100 bg-slate-50 text-xs font-bold text-slate-400">Esta es tu sesión actual</div>}
               </div>
@@ -591,7 +601,13 @@ function UsersContent({ records, areas, roles, currentUserId, canCreate, canUpda
           )
         })}
       </section>
-      {visibleRecords.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-700">No encontramos usuarios</p><p className="mt-1 text-sm text-slate-400">Prueba con otro nombre, perfil o área.</p></div>}
+      {selectedPrincipal && <div className="fixed inset-0 z-50 grid place-items-center bg-[#07182f]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Asistentes de ${selectedPrincipal.area?.name ?? selectedPrincipal.name}`}>
+        <section className="max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/60 bg-[#f7faff] p-6 shadow-2xl sm:p-8">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-5"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#2d6bb5]">Directorio de asistentes</p><h2 className="mt-1 text-2xl font-black text-[#0a2146]">{selectedPrincipal.area?.name ?? 'Área institucional'}</h2><p className="mt-1 text-sm text-slate-500">Responsable: {selectedPrincipal.name}</p></div><button className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-xl font-bold text-slate-500 hover:bg-slate-100" onClick={() => setSelectedPrincipalId(null)} type="button">×</button></div>
+          {selectedAssistants.length > 0 ? <div className="mt-6 grid gap-4 sm:grid-cols-2">{selectedAssistants.map((assistant) => <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={assistant.id}><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-[#174a86] to-[#0a2146] text-sm font-black text-white">{initials(assistant.name)}</span><div><h3 className="font-black text-[#0a2146]">{assistant.name}</h3><p className="mt-1 text-xs text-slate-500">{assistant.job_title ?? 'Asistente'}</p></div></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${assistant.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{assistant.is_active ? 'Activo' : 'Inactivo'}</span></div><dl className="mt-5 grid gap-3 border-t border-slate-100 pt-4 text-xs"><div><dt className="font-black uppercase tracking-wider text-slate-400">Correo institucional</dt><dd className="mt-1 break-all font-bold text-slate-700">{assistant.email}</dd></div><div><dt className="font-black uppercase tracking-wider text-slate-400">Área</dt><dd className="mt-1 font-bold text-slate-700">{assistant.area?.name ?? 'Sin área'}</dd></div></dl></article>)}</div> : <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-700">No hay asistentes registrados</p><p className="mt-1 text-sm text-slate-500">Puedes registrar uno desde el botón de usuarios.</p></div>}
+        </section>
+      </div>}
+      {principals.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="font-black text-slate-700">No encontramos cuentas principales</p><p className="mt-1 text-sm text-slate-400">Prueba con otro nombre, perfil o área.</p></div>}
       {editorOpen && <UserEditor areas={areas} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); onChanged() }} record={target} roles={roles} />}
     </div>
   )
