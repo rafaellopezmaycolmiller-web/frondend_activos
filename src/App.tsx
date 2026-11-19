@@ -151,30 +151,22 @@ function AuthLayout({
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3" href="#formulario-acceso">
         Saltar al formulario
       </a>
-      <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
+      <div className="grid min-h-screen lg:h-screen lg:overflow-hidden lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
         <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-10 text-white lg:flex lg:flex-col xl:px-18 xl:py-14">
-          <header className="relative z-10 flex items-center gap-4">
-            <img alt="Escudo de la Municipalidad Distrital de Morales" className="size-16 object-contain" src="/logo-morales.png" />
-            <div>
-              <p className="text-xs font-black tracking-[0.18em] text-blue-100/70">MUNICIPALIDAD DISTRITAL</p>
-              <p className="mt-1 text-lg font-extrabold">Morales</p>
-            </div>
-          </header>
-
-          <div className="relative z-10 my-auto max-w-[680px] py-10 text-center">
+          <div className="relative z-10 m-auto max-w-[680px] py-4 text-center">
             <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
             <p className="mx-auto mt-3 max-w-[620px] text-4xl font-black leading-tight tracking-[-0.04em] text-white xl:text-5xl">Gestión de Activos de la Municipalidad Distrital de <span className="text-[#f5c84c]">Morales</span></p>
             <div className="mx-auto my-7 h-1 w-56 rounded-full bg-gradient-to-r from-[#f5c84c] via-white to-[#f5c84c]" />
             <div className="mb-8 flex justify-center">
-              <div className="grid size-44 place-items-center rounded-[34px] border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm">
+              <div className="grid size-56 place-items-center rounded-[40px] border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/20 backdrop-blur-sm xl:size-64">
                 <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
               </div>
             </div>
-            <p className="mx-auto max-w-[570px] text-base leading-7 text-blue-100/75">
+            <p className="mx-auto max-w-[570px] text-sm leading-6 text-blue-100/75">
               Centralice el registro, ubicación e historial de los bienes institucionales en una plataforma segura y trazable.
             </p>
 
-            <div className="mx-auto mt-10 grid max-w-[640px] gap-3 sm:grid-cols-3">
+            <div className="mx-auto mt-7 grid max-w-[640px] gap-3 sm:grid-cols-3">
               {[
                 ['01', 'Inventario centralizado'],
                 ['02', 'Trazabilidad de cambios'],
@@ -188,20 +180,16 @@ function AuthLayout({
             </div>
           </div>
 
-          <footer className="relative z-10 flex items-center gap-3 border-t border-white/10 pt-6 text-xs text-blue-100/55">
+          <footer className="relative z-10 flex items-center gap-3 border-t border-white/10 pt-4 text-xs text-blue-100/55">
             <Icon className="size-4"><path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z" /><path d="m9.5 12 1.6 1.6 3.7-4" /></Icon>
             Plataforma de uso exclusivo para personal autorizado
           </footer>
         </section>
 
-        <section className="relative flex min-h-screen items-center justify-center bg-[#f5f8fc] p-5 sm:p-10 lg:p-12">
+        <section className="relative flex min-h-screen items-center justify-center overflow-y-auto bg-[#f5f8fc] p-5 sm:p-10 lg:h-screen lg:overflow-hidden lg:p-12">
           <div className="auth-form-panel w-full max-w-[500px] rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_25px_70px_rgba(15,35,65,0.12)] sm:p-10">
-            <div className="mb-9 flex items-center gap-3 lg:hidden">
-              <Logo />
-              <div>
-                <p className="text-[10px] font-black tracking-[0.14em] text-slate-400">MUNICIPALIDAD DISTRITAL</p>
-                <p className="mt-1 font-extrabold text-[#102a56]">Morales</p>
-              </div>
+            <div className="mb-6 flex justify-center lg:hidden">
+              <img alt="Escudo de la Municipalidad Distrital de Morales" className="size-28 object-contain" src="/logo-morales.png" />
             </div>
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-5 py-2 text-[11px] font-black tracking-[0.12em] text-[#1e5ca8]"><Icon className="size-4"><rect height="9" rx="1.5" width="12" x="6" y="10" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Icon>ACCESO INSTITUCIONAL</span>
             <h2 className="mt-6 text-4xl font-black tracking-[-0.045em] text-slate-950 sm:text-[2.8rem]">{title}</h2>
