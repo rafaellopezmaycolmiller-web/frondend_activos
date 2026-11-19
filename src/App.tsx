@@ -153,11 +153,8 @@ function AuthLayout({
       </a>
       <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(470px,0.92fr)]">
         <section className="auth-brand-panel relative hidden min-h-screen overflow-hidden px-12 py-10 text-white lg:flex lg:flex-col xl:px-18 xl:py-14">
-          <div aria-hidden="true" className="auth-orbit auth-orbit-one" />
-          <div aria-hidden="true" className="auth-orbit auth-orbit-two" />
-
           <header className="relative z-10 flex items-center gap-4">
-            <Logo />
+            <img alt="Escudo de la Municipalidad Distrital de Morales" className="size-16 object-contain" src="/logo-morales.png" />
             <div>
               <p className="text-xs font-black tracking-[0.18em] text-blue-100/70">MUNICIPALIDAD DISTRITAL</p>
               <p className="mt-1 text-lg font-extrabold">Morales</p>
@@ -165,8 +162,15 @@ function AuthLayout({
           </header>
 
           <div className="relative z-10 my-auto max-w-[610px] py-16">
-            <div className="mb-7 h-1 w-14 rounded-full bg-[#f5c84c]" />
-            <p className="text-xs font-black tracking-[0.22em] text-blue-100/65">CONTROL PATRIMONIAL</p>
+            <div className="mb-8 flex items-center gap-5">
+              <div className="grid size-28 shrink-0 place-items-center rounded-[28px] border border-white/20 bg-white/10 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm">
+                <img alt="Logo municipal de Morales" className="size-full object-contain" src="/logo-morales.png" />
+              </div>
+              <div>
+                <p className="text-xs font-black tracking-[0.22em] text-[#f5c84c]">CONTROL PATRIMONIAL</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-blue-100/75">Sistema de gestión y control de activos municipales</p>
+              </div>
+            </div>
             <h1 className="mt-5 max-w-[570px] text-4xl font-black leading-[1.08] tracking-[-0.04em] xl:text-5xl">
               Gestión clara de los activos municipales.
             </h1>
@@ -194,8 +198,8 @@ function AuthLayout({
           </footer>
         </section>
 
-        <section className="relative flex min-h-screen items-center justify-center p-5 sm:p-10 lg:bg-white lg:p-12">
-          <div className="auth-form-panel w-full max-w-[470px] rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_25px_70px_rgba(15,35,65,0.12)] sm:p-10 lg:rounded-none lg:border-0 lg:p-0 lg:shadow-none">
+        <section className="relative flex min-h-screen items-center justify-center bg-[#f5f8fc] p-5 sm:p-10 lg:p-12">
+          <div className="auth-form-panel w-full max-w-[500px] rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_25px_70px_rgba(15,35,65,0.12)] sm:p-10">
             <div className="mb-9 flex items-center gap-3 lg:hidden">
               <Logo />
               <div>
