@@ -70,6 +70,19 @@ function compactAreaName(area: { readonly code: string; readonly name: string } 
   return labels[area.code] ?? area.name
 }
 
+function organizationEmoji(name: string): string {
+  const value = name.toLowerCase()
+  if (value.includes('juríd') || value.includes('asesor')) return '⚖️'
+  if (value.includes('informática') || value.includes('sistema') || value.includes('tecnolog')) return '💻'
+  if (value.includes('archivo') || value.includes('document')) return '📁'
+  if (value.includes('administración') || value.includes('patrimonio') || value.includes('logística')) return '💼'
+  if (value.includes('tributaria') || value.includes('presupuesto') || value.includes('contab')) return '📊'
+  if (value.includes('ambiental') || value.includes('limpieza')) return '🌱'
+  if (value.includes('seguridad') || value.includes('serenazgo')) return '🛡️'
+  if (value.includes('gerencia') || value.includes('municipal')) return '🏛️'
+  return '🏢'
+}
+
 function compactCreatorLabel(creator: Asset['creator']): string {
   if (creator === null || creator === undefined) return 'No identificado'
   const area = creator.area?.toLowerCase() ?? ''
@@ -697,7 +710,7 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
   function treeNode(record: Area, depth = 0): ReactNode {
     const children = records.filter((child) => child.parent_id === record.id)
     const open = expanded.has(record.id)
-    return <div className="org-tree-node" key={record.id}><div className="org-tree-row" style={{ marginLeft: `${depth * 22}px` }}><button aria-label={open ? `Contraer ${record.name}` : `Expandir ${record.name}`} className={`org-tree-toggle ${children.length === 0 ? 'invisible' : ''}`} onClick={() => toggle(record.id)} type="button">{open ? '−' : '+'}</button><span className="org-tree-icon">{depth === 0 ? <img alt="" src="/logo-morales.png" /> : '•'}</span><div className="min-w-0 flex-1"><strong>{record.name}</strong><span>{record.code} · {children.length} unidad{children.length === 1 ? '' : 'es'} internas</span></div><span className={record.is_active ? 'org-tree-status active' : 'org-tree-status'}>{record.is_active ? 'Activa' : 'Inactiva'}</span>{canManage && <button className="org-tree-edit" onClick={() => openEditor(record)} type="button">Editar</button>}</div>{open && children.map((child) => treeNode(child, depth + 1))}</div>
+    return <div className="org-tree-node" key={record.id}><div className="org-tree-row" style={{ marginLeft: `${depth * 22}px` }}><button aria-label={open ? `Contraer ${record.name}` : `Expandir ${record.name}`} className={`org-tree-toggle ${children.length === 0 ? 'invisible' : ''}`} onClick={() => toggle(record.id)} type="button">{open ? '−' : '+'}</button><span className="org-tree-icon">{organizationEmoji(record.name)}</span><div className="min-w-0 flex-1"><strong>{record.name}</strong><span>{record.code} · {children.length} unidad{children.length === 1 ? '' : 'es'} internas</span></div><span className={record.is_active ? 'org-tree-status active' : 'org-tree-status'}>{record.is_active ? 'Activa' : 'Inactiva'}</span>{canManage && <button className="org-tree-edit" onClick={() => openEditor(record)} type="button">Editar</button>}</div>{open && children.map((child) => treeNode(child, depth + 1))}</div>
   }
 
   return (

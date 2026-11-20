@@ -251,9 +251,9 @@ export function AreaEditor({ record, areas, onClose, onSaved }: {
           <TextField label="Código institucional" onChange={(value) => setCode(value.toUpperCase())} value={code} />
           <TextField label="Nombre del área" onChange={setName} value={name} />
           <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            Área superior
-            <select className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" onChange={(event) => setParentId(event.target.value)} value={parentId}>
-              <option value="">Sin área superior</option>
+            Unidad superior (gerencia u oficina donde se ubicará)
+            <select className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" onChange={(event) => setParentId(event.target.value)} required={record === null} value={parentId}>
+              <option value="">Seleccione la unidad superior</option>
               {areas.filter((area) => area.id !== record?.id).map((area) => <option key={area.id} value={area.id}>{area.code} · {area.name}</option>)}
             </select>
           </label>
