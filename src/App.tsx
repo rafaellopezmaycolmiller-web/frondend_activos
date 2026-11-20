@@ -73,11 +73,11 @@ function compactAreaName(area: { readonly code: string; readonly name: string } 
 function organizationEmoji(name: string): string {
   const value = name.toLowerCase()
   if (value.includes('juríd') || value.includes('asesor')) return '⚖️'
-  if (value.includes('informática') || value.includes('sistema') || value.includes('tecnolog')) return '💻'
-  if (value.includes('archivo') || value.includes('document')) return '📁'
-  if (value.includes('administración') || value.includes('patrimonio') || value.includes('logística')) return '💼'
-  if (value.includes('tributaria') || value.includes('presupuesto') || value.includes('contab')) return '📊'
-  if (value.includes('ambiental') || value.includes('limpieza')) return '🌱'
+  if (value.includes('informática') || value.includes('sistema') || value.includes('tecnolog')) return '🖥️'
+  if (value.includes('archivo') || value.includes('document')) return '📑'
+  if (value.includes('administración') || value.includes('patrimonio') || value.includes('logística')) return '🏢'
+  if (value.includes('tributaria') || value.includes('presupuesto') || value.includes('contab')) return '📈'
+  if (value.includes('ambiental') || value.includes('limpieza')) return '🌿'
   if (value.includes('seguridad') || value.includes('serenazgo')) return '🛡️'
   if (value.includes('gerencia') || value.includes('municipal')) return '🏛️'
   return '🏢'
