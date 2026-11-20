@@ -81,12 +81,6 @@ body {
 .dashboard-content table td button.text-emerald-700 { border-color: #a7e3c5; background: #ecfdf3; color: #087443; }
 .dashboard-content table td button.text-red-700 { border-color: #fecaca; background: #fff1f2; color: #b42318; }
 .dashboard-content table td button.text-\[\#1e4f97\] { border-color: #b9d4f4; background: #edf5ff; color: #174a86; }
-.dashboard-content table td span.rounded-full { display: inline-flex; min-width: 92px; align-items: center; justify-content: center; border: 1px solid #d7e1ec; padding: 5px 10px; font-size: 10px; font-weight: 900; letter-spacing: .02em; text-align: center; }
-.dashboard-content table td span.bg-amber-50 { border-color: #f5d98a; background: #fff8df; color: #9a6700; }
-.dashboard-content table td span.bg-emerald-50 { border-color: #a7e3c5; background: #ecfdf3; color: #087443; }
-.dashboard-content table td span.bg-red-50 { border-color: #fecaca; background: #fff1f2; color: #b42318; }
-.dashboard-content table td span.bg-slate-100,
-.dashboard-content table td span.bg-slate-200 { background: #f1f5f9; color: #475569; }
 .dashboard-content > div > section,
 .dashboard-content > div > .rounded-2xl { border-color: #dce7f2; }
 
