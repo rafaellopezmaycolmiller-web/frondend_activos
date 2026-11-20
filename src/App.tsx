@@ -51,7 +51,7 @@ import {
   reportExportUrl,
 } from './api'
 import { AreaEditor, UserEditor } from './IdentityForms'
-import { AssetEditor } from './AssetForms'
+import { AssetEditor, ASSET_TYPES } from './AssetForms'
 import type { Area, Asset, AssetCategory, AssetLocation, AssetPage, AssetStatus, AuditEvent, Custodianship, DashboardMetrics, InventoryCampaign, MovementRequest, Role, User, ReconciliationRun, TechnicalEvaluation, DisposalRequest, ReportResult } from './types'
 
 type AuthView = 'login' | 'forgot' | 'mfa' | 'reset'
@@ -1090,6 +1090,7 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
   const [target, setTarget] = useState<Asset | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [assetTypeFilter, setAssetTypeFilter] = useState('all')
   const [maintenanceRecords, setMaintenanceRecords] = useState<readonly Asset[]>([])
   const isTechnologyArea = user.area?.code === 'TI'
 
@@ -1143,8 +1144,9 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
 
   const visibleRecords = records.filter((record) => {
     const matchesCategory = categoryFilter === 'all' || record.category.code === categoryFilter
-    const matchesSearch = `${record.asset_code} ${record.name} ${record.serial_number ?? ''} ${record.category.name}`.toLowerCase().includes(search.toLowerCase())
-    return matchesCategory && matchesSearch
+    const matchesType = assetTypeFilter === 'all' || record.asset_type === assetTypeFilter
+    const matchesSearch = `${record.asset_code} ${record.name} ${record.asset_type ?? ''} ${record.serial_number ?? ''} ${record.category.name}`.toLowerCase().includes(search.toLowerCase())
+    return matchesCategory && matchesType && matchesSearch
   })
 
   const statusTone: Record<string, string> = {
@@ -1197,6 +1199,10 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
           <select aria-label="Filtrar por categoría" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
             <option value="all">Todas las categorías</option>
             {categories.filter((category) => category.is_active).map((category) => <option key={category.code} value={category.code}>{category.name}</option>)}
+          </select>
+          <select aria-label="Filtrar por tipo de activo" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => setAssetTypeFilter(event.target.value)} value={assetTypeFilter}>
+            <option value="all">Todos los tipos</option>
+            {ASSET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
           <span className="whitespace-nowrap text-xs font-bold text-slate-400">{pagination.total} resultado(s)</span>
         </div>

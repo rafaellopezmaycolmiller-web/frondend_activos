@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, createAsset, updateAsset, uploadAssetDocument } from './api'
 import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus } from './types'
 
+export const ASSET_TYPES = ['Laptop', 'Computadora de escritorio', 'Impresora', 'Monitor', 'Escáner', 'Proyector', 'Servidor', 'Switch de red', 'UPS', 'Lector de códigos', 'Tablet', 'Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'] as const
+
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     const message = Object.values(error.errors)[0]?.[0]
@@ -54,6 +56,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     assetCode: record?.asset_code ?? '',
     inventoryCode: record?.inventory_code ?? '',
     name: record?.name ?? '',
+    assetType: record?.asset_type ?? '',
     categoryId: record?.category.id.toString() ?? '',
     statusId: record?.status.id.toString() ?? defaultStatusId,
     areaId: record?.area.id.toString() ?? '',
@@ -161,6 +164,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
       ...(record === null ? { asset_code: form.assetCode } : {}),
       inventory_code: form.inventoryCode || null,
       name: form.name,
+      asset_type: form.assetType,
       category_id: Number(form.categoryId),
       status_id: Number(form.statusId),
       area_id: Number(form.areaId),
@@ -215,6 +219,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                   {record === null && field('Código patrimonial', 'assetCode', { placeholder: 'Ej. MDM-TEC-0002' })}
                   {field('Nombre del activo', 'name', { placeholder: 'Ej. Computadora de escritorio' })}
                   {select('Tipo de bien', 'categoryId', categories.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })))}
+                  <label className="grid gap-2 text-sm font-bold text-slate-700">Tipo de activo<select className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" required value={form.assetType} onChange={(event) => update('assetType', event.target.value)}><option value="">Seleccione una opción</option>{ASSET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
                   {select('Estado actual', 'statusId', statuses.filter((item) => item.is_active).map((item) => ({ id: item.id, label: item.name })))}
                 </div>
               </FormSection>
