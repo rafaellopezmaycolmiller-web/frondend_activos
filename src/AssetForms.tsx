@@ -78,6 +78,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, us
     areaId: record?.area.id.toString() ?? '',
     locationId: record?.location?.id.toString() ?? '',
     custodianId: '',
+    responsibleName: '',
+    responsibleDocument: '',
     brand: record?.brand ?? '',
     model: record?.model ?? '',
     serialNumber: record?.serial_number ?? '',
@@ -187,6 +189,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, us
       status_id: Number(form.statusId),
       area_id: Number(form.areaId),
       location_id: form.locationId ? Number(form.locationId) : null,
+      responsible_name: form.responsibleName || null,
+      responsible_document: form.responsibleDocument || null,
       brand: form.brand || null,
       model: form.model || null,
       serial_number: form.serialNumber || null,
@@ -254,6 +258,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, us
                   {select('Área destino / responsable patrimonial', 'areaId', areas.filter((item) => item.is_active && item.code !== 'MDM').map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
                   {select('Ubicación física dentro del área', 'locationId', activeLocations.map((item) => ({ id: item.id, label: item.name })), false)}
                   {select('Persona responsable que recibe el activo', 'custodianId', (users ?? []).filter((item) => item.is_active && item.area?.id === Number(form.areaId)).map((item) => ({ id: item.id, label: `${item.name}${item.document_number ? ` · DNI ${item.document_number}` : ''}` })), false)}
+                  {field('Nombre completo del responsable', 'responsibleName', { required: false, placeholder: 'Si aún no está creado como usuario' })}
+                  {field('DNI del responsable', 'responsibleDocument', { required: false, placeholder: 'Documento de identidad' })}
                   </div>
                 </div>
               </FormSection>
