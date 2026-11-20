@@ -4,6 +4,19 @@ import { ApiError, createAsset, updateAsset, uploadAssetDocument } from './api'
 import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus } from './types'
 
 export const ASSET_TYPES = ['Laptop', 'Computadora de escritorio', 'Impresora', 'Monitor', 'Escáner', 'Proyector', 'Servidor', 'Switch de red', 'UPS', 'Lector de códigos', 'Tablet', 'Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'] as const
+const technicalFields: Record<string, readonly [string, string][]> = {
+  Laptop: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo']],
+  'Computadora de escritorio': [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['os', 'Sistema operativo']],
+  Servidor: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Capacidad de almacenamiento'], ['os', 'Sistema operativo']],
+  'Switch de red': [['ports', 'Cantidad de puertos'], ['speed', 'Velocidad de puertos'], ['power', 'PoE / alimentación']],
+  UPS: [['capacity', 'Capacidad (VA/W)'], ['autonomy', 'Autonomía de batería'], ['outlets', 'Número de salidas']],
+  Impresora: [['technology', 'Tecnología'], ['speed', 'Velocidad de impresión'], ['resolution', 'Resolución'], ['color', 'Color o monocromática']],
+  Monitor: [['screenSize', 'Tamaño de pantalla'], ['resolution', 'Resolución'], ['ports', 'Puertos de conexión']],
+  Escáner: [['speed', 'Velocidad de escaneo'], ['resolution', 'Resolución'], ['size', 'Tamaño máximo']],
+  Proyector: [['lumens', 'Brillo (lúmenes)'], ['resolution', 'Resolución'], ['technology', 'Tecnología']],
+  Tablet: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo']],
+  'Lector de códigos': [['technology', 'Tecnología de lectura'], ['connection', 'Conectividad']],
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -57,6 +70,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     inventoryCode: record?.inventory_code ?? '',
     name: record?.name ?? '',
     assetType: record?.asset_type ?? '',
+    processor: record?.specifications?.processor ?? '', ram: record?.specifications?.ram ?? '', storage: record?.specifications?.storage ?? '', screenSize: record?.specifications?.screenSize ?? '', os: record?.specifications?.os ?? '',
+    ports: record?.specifications?.ports ?? '', speed: record?.specifications?.speed ?? '', power: record?.specifications?.power ?? '', capacity: record?.specifications?.capacity ?? '', autonomy: record?.specifications?.autonomy ?? '', outlets: record?.specifications?.outlets ?? '', technology: record?.specifications?.technology ?? '', resolution: record?.specifications?.resolution ?? '', color: record?.specifications?.color ?? '', size: record?.specifications?.size ?? '', lumens: record?.specifications?.lumens ?? '', connection: record?.specifications?.connection ?? '', material: record?.specifications?.material ?? '', dimensions: record?.specifications?.dimensions ?? '',
     categoryId: record?.category.id.toString() ?? '',
     statusId: record?.status.id.toString() ?? defaultStatusId,
     areaId: record?.area.id.toString() ?? '',
@@ -165,6 +180,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
       inventory_code: form.inventoryCode || null,
       name: form.name,
       asset_type: form.assetType,
+      specifications: Object.fromEntries(Object.entries(form).filter(([key]) => (technicalFields[form.assetType] ?? []).some(([fieldKey]) => fieldKey === key) || ['material', 'dimensions'].includes(key)).filter(([, value]) => value.trim() !== '')),
       category_id: Number(form.categoryId),
       status_id: Number(form.statusId),
       area_id: Number(form.areaId),
@@ -259,6 +275,18 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                   <textarea className="min-h-24 rounded-xl border border-slate-300 bg-slate-50 p-3 font-medium outline-none transition placeholder:text-slate-400 focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => update('description', event.target.value)} placeholder="Características, estado físico u otra información relevante" value={form.description} />
                 </label>
               </FormSection>
+
+              {((technicalFields[form.assetType] ?? []).length > 0 || ['Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'].includes(form.assetType)) && (
+                <FormSection description="Los campos se adaptan al tipo de activo seleccionado para registrar su ficha técnica." step="04" title={`Especificaciones: ${form.assetType}`}>
+                  <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6">
+                    {(technicalFields[form.assetType] ?? []).map(([key, label]) => field(label, key as keyof typeof form, { required: false, placeholder: 'Ingrese el dato' }))}
+                    {['Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'].includes(form.assetType) && <>
+                      {field('Material', 'material', { required: false, placeholder: 'Madera, metal, plástico...' })}
+                      {field('Dimensiones', 'dimensions', { required: false, placeholder: 'Ej. 120 × 60 × 75 cm' })}
+                    </>}
+                  </div>
+                </FormSection>
+              )}
 
               {record !== null && (
                 <FormSection description="Este dato quedará registrado en el historial del activo." step="04" title="Control de actualización">
