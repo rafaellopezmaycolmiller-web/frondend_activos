@@ -1368,7 +1368,7 @@ function reportStatusClass(value: unknown): string {
   if (['rejected', 'not_found', 'no encontrado', 'disposed', 'dado de baja', 'baja', 'ended'].includes(normalized)) return 'rounded-full bg-red-50 px-2.5 py-1 text-xs font-black text-red-700'
   if (['pending', 'pendiente', 'planned', 'in_progress', 'en curso', 'maintenance', 'en mantenimiento', 'in_maintenance', 'under_review', 'location_mismatch', 'ubicación diferente'].includes(normalized)) return 'rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700'
   if (['baja en evaluación', 'proposed_disposal', 'pending_authority'].includes(normalized)) return 'rounded-full bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700'
-  return 'px-5 py-3 text-sm'
+  return 'text-sm'
 }
 
 function DataTable({ headers, children }: { readonly headers: readonly string[]; readonly children: ReactNode }) {
