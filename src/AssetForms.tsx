@@ -74,7 +74,9 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     ports: record?.specifications?.ports ?? '', speed: record?.specifications?.speed ?? '', power: record?.specifications?.power ?? '', capacity: record?.specifications?.capacity ?? '', autonomy: record?.specifications?.autonomy ?? '', outlets: record?.specifications?.outlets ?? '', technology: record?.specifications?.technology ?? '', resolution: record?.specifications?.resolution ?? '', color: record?.specifications?.color ?? '', size: record?.specifications?.size ?? '', lumens: record?.specifications?.lumens ?? '', connection: record?.specifications?.connection ?? '', material: record?.specifications?.material ?? '', dimensions: record?.specifications?.dimensions ?? '', condition: record?.specifications?.condition ?? '', generation: record?.specifications?.generation ?? '', ramType: record?.specifications?.ramType ?? '', storageType: record?.specifications?.storageType ?? '', gpu: record?.specifications?.gpu ?? '', cores: record?.specifications?.cores ?? '', raid: record?.specifications?.raid ?? '', rack: record?.specifications?.rack ?? '', managed: record?.specifications?.managed ?? '', uplink: record?.specifications?.uplink ?? '', battery: record?.specifications?.battery ?? '', topology: record?.specifications?.topology ?? '', paperSize: record?.specifications?.paperSize ?? '', duplex: record?.specifications?.duplex ?? '', panel: record?.specifications?.panel ?? '', refreshRate: record?.specifications?.refreshRate ?? '', range: record?.specifications?.range ?? '',
     categoryId: record?.category.id.toString() ?? '',
     statusId: record?.status.id.toString() ?? defaultStatusId,
-    areaId: record?.area.id.toString() ?? '',
+    // Los activos se asignan al área principal; la unidad interna se guarda
+    // como ubicación física dependiente de esa área.
+    areaId: (record?.area.parent_id ?? record?.area.id)?.toString() ?? '',
     locationId: record?.location?.id.toString() ?? '',
     responsibleName: '',
     responsibleDocument: '',
@@ -124,6 +126,11 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     if (file === null) setPreview(record?.documents?.find((document) => document.document_type === 'photo')?.url ?? null)
   }, [file, record])
 
+  const institution = areas.find((item) => item.parent_id === null)
+  const destinationAreas = (institution === undefined
+    ? areas.filter((item) => item.parent_id === null)
+    : areas.filter((item) => item.parent_id === institution.id)
+  ).filter((item) => item.is_active && item.code !== 'MDM')
   const activeLocations = locations.filter((location) => location.is_active && location.area_id === Number(form.areaId))
 
   function update(key: keyof typeof form, value: string) {
@@ -251,8 +258,9 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                     Área que registra (cuenta actual): <strong className="text-[#174a86]">{registeredAreaName ?? 'Área no asignada'}</strong>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6">
-                  {select('Área destino / responsable patrimonial', 'areaId', areas.filter((item) => item.is_active && item.code !== 'MDM').map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
-                  {select('Ubicación física dentro del área', 'locationId', activeLocations.map((item) => ({ id: item.id, label: item.name })), false)}
+                  {select('Área principal de destino', 'areaId', destinationAreas.map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
+                  {select('Unidad interna / ubicación física', 'locationId', activeLocations.map((item) => ({ id: item.id, label: item.name })), false)}
+                  {form.areaId !== '' && activeLocations.length === 0 && <p className="-mt-2 text-xs font-medium text-amber-700">Esta área todavía no tiene unidades internas registradas. Puedes dejar la ubicación sin especificar.</p>}
                   {field('Nombre completo del responsable', 'responsibleName', { required: false, placeholder: 'Si aún no está creado como usuario' })}
                   {field('DNI del responsable', 'responsibleDocument', { required: false, placeholder: 'Documento de identidad' })}
                   </div>
