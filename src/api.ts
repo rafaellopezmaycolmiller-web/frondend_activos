@@ -283,8 +283,8 @@ export async function archiveAuditEvent(id: number, reason: string): Promise<voi
   })
 }
 
-export async function assets(page = 1, search = '', mine = false): Promise<AssetPage> {
-  const query = `${search === '' ? '' : `&search=${encodeURIComponent(search)}`}${mine ? '&mine=1' : ''}`
+export async function assets(page = 1, search = '', mine = false, status = ''): Promise<AssetPage> {
+  const query = `${search === '' ? '' : `&search=${encodeURIComponent(search)}`}${mine ? '&mine=1' : ''}${status === '' ? '' : `&status=${encodeURIComponent(status)}`}`
   const response = await request<AssetPage>(`/api/v1/assets?per_page=12&page=${page}${query}`)
   return response
 }

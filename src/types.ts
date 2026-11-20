@@ -38,6 +38,8 @@ export interface DashboardMetrics {
   readonly areas_active: number
   readonly assets_total: number
   readonly assets_active: number
+  readonly assets_with_serial: number
+  readonly assets_maintenance: number
   readonly audit_events_24h: number | null
   readonly phase: string
   readonly phase_name: string

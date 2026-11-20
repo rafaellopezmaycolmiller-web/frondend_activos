@@ -61,6 +61,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     brand: record?.brand ?? '',
     model: record?.model ?? '',
     serialNumber: record?.serial_number ?? '',
+    acquisitionDate: record?.acquisition_date ?? '',
+    usefulLifeYears: record?.useful_life_years?.toString() ?? '',
     description: record?.description ?? '',
     reason: '',
   }
@@ -166,6 +168,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
       brand: form.brand || null,
       model: form.model || null,
       serial_number: form.serialNumber || null,
+      acquisition_date: form.acquisitionDate || null,
+      useful_life_years: form.usefulLifeYears ? Number(form.usefulLifeYears) : null,
       description: form.description || null,
       is_active: isActive,
       ...(record === null ? {} : { reason: form.reason }),
@@ -234,6 +238,16 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                   {field('Número de serie', 'serialNumber', { required: false, placeholder: 'Opcional' })}
                   {field('Marca', 'brand', { required: false, placeholder: 'Opcional' })}
                   {field('Modelo', 'model', { required: false, placeholder: 'Opcional' })}
+                  <label className="grid gap-2 text-sm font-bold text-slate-700">
+                    Fecha de adquisición
+                    <input className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" required={record === null} type="date" value={form.acquisitionDate} onChange={(event) => update('acquisitionDate', event.target.value)} />
+                    <span className="text-[11px] font-medium text-slate-400">Fecha en que la municipalidad obtuvo el bien.</span>
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-slate-700">
+                    Vida útil estimada (años)
+                    <input className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-3 font-medium outline-none focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" min="1" max="100" required={record === null} type="number" value={form.usefulLifeYears} onChange={(event) => update('usefulLifeYears', event.target.value)} />
+                    <span className="text-[11px] font-medium text-slate-400">El sistema calcula el fin estimado de vida útil.</span>
+                  </label>
                 </div>
                 <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
                   Observaciones
