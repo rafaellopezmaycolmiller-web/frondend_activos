@@ -60,6 +60,8 @@ body {
 
 /* Lenguaje visual común para los procesos operativos */
 .dashboard-content form { align-items: start; border-radius: 18px !important; box-shadow: 0 8px 24px rgb(15 49 91 / 6%); }
+.dashboard-content .section-heading h2,
+.dashboard-content .section-heading p { display: none; }
 .dashboard-content form > label { align-content: start; min-width: 0; grid-template-rows: 2.35rem auto; line-height: 1.25; }
 .dashboard-content form > label > input,
 .dashboard-content form > label > select,

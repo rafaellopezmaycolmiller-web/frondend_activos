@@ -550,7 +550,7 @@ function DashboardContent({ metrics, user }: { readonly metrics: DashboardMetric
 
 function SectionHeading({ title, description, action }: { readonly title: string; readonly description: string; readonly action?: ReactNode }) {
   return (
-    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="section-heading flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div><h2 className="text-xl font-black tracking-tight text-slate-950">{title}</h2><p className="mt-1 text-sm text-slate-500">{description}</p></div>
       {action}
     </div>
