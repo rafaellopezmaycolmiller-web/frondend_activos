@@ -28,6 +28,7 @@ body {
 }
 
 @media print {
+  @page { size: A4 landscape; margin: 12mm; }
   body { background: #fff !important; }
   body * { visibility: hidden; }
   .report-print-area, .report-print-area * { visibility: visible; }
@@ -50,6 +51,9 @@ body {
 .report-summary strong { display: block; overflow: hidden; margin-top: 4px; color: #163e70; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .report-print-area table thead { background: #174a86 !important; color: white; }
 .report-print-area table thead th { color: white !important; }
+.report-print-area table { width: 100%; border-collapse: collapse; }
+.report-print-area table tbody tr:nth-child(even) { background: #f5f8fc; }
+.report-print-area table td, .report-print-area table th { border-right: 1px solid #dbe7f3; white-space: nowrap; }
 .report-footer { margin-top: 18px; border-top: 1px solid #dbe7f3; padding-top: 10px; color: #64748b; font-size: 10px; text-align: center; }
 @media (max-width: 700px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .report-date { display: none; } }
 
