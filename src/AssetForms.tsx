@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 
-import { ApiError, createAsset, updateAsset, uploadAssetDocument } from './api'
-import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus } from './types'
+import { ApiError, assignCustodian, createAsset, updateAsset, uploadAssetDocument } from './api'
+import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus, User } from './types'
 
 export const ASSET_TYPES = ['Laptop', 'Computadora de escritorio', 'Impresora', 'Monitor', 'Escáner', 'Proyector', 'Servidor', 'Switch de red', 'UPS', 'Lector de códigos', 'Tablet', 'Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'] as const
 export const technicalFields: Record<string, readonly [string, string][]> = {
@@ -52,12 +52,13 @@ function FormSection({ title, description, step, children }: {
   )
 }
 
-export function AssetEditor({ record, areas, categories, statuses, locations, registeredAreaName, canUpload, onClose, onSaved }: {
+export function AssetEditor({ record, areas, categories, statuses, locations, users, registeredAreaName, canUpload, onClose, onSaved }: {
   readonly record: Asset | null
   readonly areas: readonly Area[]
   readonly categories: readonly AssetCategory[]
   readonly statuses: readonly AssetStatus[]
   readonly locations: readonly AssetLocation[]
+  readonly users?: readonly User[]
   readonly registeredAreaName: string | null
   readonly canUpload: boolean
   readonly onClose: () => void
@@ -76,6 +77,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     statusId: record?.status.id.toString() ?? defaultStatusId,
     areaId: record?.area.id.toString() ?? '',
     locationId: record?.location?.id.toString() ?? '',
+    custodianId: '',
     brand: record?.brand ?? '',
     model: record?.model ?? '',
     serialNumber: record?.serial_number ?? '',
@@ -198,6 +200,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     try {
       const saved = record === null ? await createAsset(input) : await updateAsset(record.id, input)
 
+      if (form.custodianId) await assignCustodian(saved.id, Number(form.custodianId), 'Asignación realizada durante el registro del activo.')
+
       if (file !== null) {
         await uploadAssetDocument(saved.id, 'photo', file)
       }
@@ -249,6 +253,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                   <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6">
                   {select('Área destino / responsable patrimonial', 'areaId', areas.filter((item) => item.is_active && item.code !== 'MDM').map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` })))}
                   {select('Ubicación física dentro del área', 'locationId', activeLocations.map((item) => ({ id: item.id, label: item.name })), false)}
+                  {select('Persona responsable que recibe el activo', 'custodianId', (users ?? []).filter((item) => item.is_active && item.area?.id === Number(form.areaId)).map((item) => ({ id: item.id, label: `${item.name}${item.document_number ? ` · DNI ${item.document_number}` : ''}` })), false)}
                   </div>
                 </div>
               </FormSection>
