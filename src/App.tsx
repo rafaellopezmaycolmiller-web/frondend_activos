@@ -1089,6 +1089,7 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
   const [scannerOpen, setScannerOpen] = useState(false)
   const [target, setTarget] = useState<Asset | null>(null)
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [maintenanceRecords, setMaintenanceRecords] = useState<readonly Asset[]>([])
   const isTechnologyArea = user.area?.code === 'TI'
 
@@ -1140,7 +1141,11 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
     setDetailsOpen(true)
   }
 
-  const visibleRecords = records.filter((record) => `${record.asset_code} ${record.name} ${record.serial_number ?? ''} ${record.category.name}`.toLowerCase().includes(search.toLowerCase()))
+  const visibleRecords = records.filter((record) => {
+    const matchesCategory = categoryFilter === 'all' || record.category.code === categoryFilter
+    const matchesSearch = `${record.asset_code} ${record.name} ${record.serial_number ?? ''} ${record.category.name}`.toLowerCase().includes(search.toLowerCase())
+    return matchesCategory && matchesSearch
+  })
 
   const statusTone: Record<string, string> = {
     OPERATIVO: 'bg-emerald-500',
@@ -1188,6 +1193,10 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
           <select aria-label="Alcance de activos" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => onScopeChange(event.target.value as 'all' | 'mine')} value={assetScope}>
             <option value="all">Todos los activos autorizados</option>
             <option value="mine">Registrados por mí</option>
+          </select>
+          <select aria-label="Filtrar por categoría" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+            <option value="all">Todas las categorías</option>
+            {categories.filter((category) => category.is_active).map((category) => <option key={category.code} value={category.code}>{category.name}</option>)}
           </select>
           <span className="whitespace-nowrap text-xs font-bold text-slate-400">{pagination.total} resultado(s)</span>
         </div>
