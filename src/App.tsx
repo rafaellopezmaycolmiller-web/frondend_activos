@@ -1187,11 +1187,7 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
             </button></div>
           )}
         </div>
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <span className="pointer-events-none absolute inset-y-0 left-0 grid w-11 place-items-center text-slate-400"><Icon className="size-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></Icon></span>
-            <input className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium outline-none transition focus:border-[#2d6bb5] focus:bg-white focus:ring-4 focus:ring-blue-100" onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, nombre, serie o categoría" value={search} />
-          </div>
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
           <select aria-label="Alcance de activos" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => onScopeChange(event.target.value as 'all' | 'mine')} value={assetScope}>
             <option value="all">Todos los activos autorizados</option>
             <option value="mine">Registrados por mí</option>
