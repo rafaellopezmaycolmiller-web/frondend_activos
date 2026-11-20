@@ -714,9 +714,9 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
       <section className="org-tree-panel rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm" aria-label="Estructura organizacional"><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#174a86]">Jerarquía institucional</p><h3 className="mt-1 text-lg font-black text-[#0a2146]">Gerencias, oficinas y áreas internas</h3></div><span className="rounded-lg bg-blue-50 px-3 py-1.5 text-[10px] font-black text-[#174a86]">{operationalAreas.length} unidades</span></div>{institution ? treeNode(institution) : records.filter((record) => record.parent_id === null).map((record) => treeNode(record))}</section>
 
       {institution && (
-        <article className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#0a2146] to-[#174a86] p-6 text-white shadow-lg shadow-blue-950/10">
-          <span aria-hidden="true" className="absolute -right-12 -top-16 size-48 rounded-full border-[28px] border-white/[0.04]" />
-          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <article className="hidden relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#0a2146] to-[#174a86] p-6 text-white shadow-lg shadow-blue-950/10">
+          <span aria-hidden="true" className="hidden absolute -right-12 -top-16 size-48 rounded-full border-[28px] border-white/[0.04]" />
+          <div className="hidden relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-blue-100"><Icon className="size-7"><path d="M4 21V8l8-5 8 5v13M2 21h20M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3" /></Icon></span><div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">Institución principal · {institution.code}</p><h3 className="mt-1 text-xl font-black">{institution.name}</h3><p className="mt-1 text-sm text-blue-100/65">{operationalAreas.length} áreas operativas vinculadas al sistema</p></div></div>
             {canManage && <button className="h-10 rounded-xl border border-white/15 bg-white/10 px-4 text-xs font-black text-white transition hover:bg-white/15" onClick={() => openEditor(institution)} type="button">Editar institución</button>}
           </div>
