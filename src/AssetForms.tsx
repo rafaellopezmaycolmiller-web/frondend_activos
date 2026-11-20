@@ -4,7 +4,7 @@ import { ApiError, createAsset, updateAsset, uploadAssetDocument } from './api'
 import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus } from './types'
 
 export const ASSET_TYPES = ['Laptop', 'Computadora de escritorio', 'Impresora', 'Monitor', 'Escáner', 'Proyector', 'Servidor', 'Switch de red', 'UPS', 'Lector de códigos', 'Tablet', 'Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'] as const
-const technicalFields: Record<string, readonly [string, string][]> = {
+export const technicalFields: Record<string, readonly [string, string][]> = {
   Laptop: [['processor', 'Procesador'], ['generation', 'Generación'], ['ram', 'Memoria RAM'], ['ramType', 'Tipo de RAM'], ['storage', 'Almacenamiento'], ['storageType', 'Tipo de disco'], ['gpu', 'Tarjeta gráfica'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo'], ['connection', 'Conectividad']],
   'Computadora de escritorio': [['processor', 'Procesador'], ['generation', 'Generación'], ['ram', 'Memoria RAM'], ['ramType', 'Tipo de RAM'], ['storage', 'Almacenamiento'], ['storageType', 'Tipo de disco'], ['gpu', 'Tarjeta gráfica'], ['os', 'Sistema operativo'], ['connection', 'Conectividad']],
   Servidor: [['processor', 'Procesador'], ['cores', 'Núcleos'], ['ram', 'Memoria RAM total'], ['storage', 'Capacidad de almacenamiento'], ['storageType', 'Tipo de disco'], ['raid', 'Configuración RAID'], ['os', 'Sistema operativo'], ['rack', 'Ubicación en rack']],
