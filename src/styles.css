@@ -77,10 +77,10 @@ body {
 .dashboard-content table td span.rounded-full { display: inline-block; min-width: 118px; padding-inline: 10px; text-align: center; white-space: nowrap; }
 .org-tree-panel { background: linear-gradient(180deg, #fff 0%, #f8fbff 100%); }
 .org-tree-node { position: relative; }
-.org-tree-row { display: flex; min-height: 54px; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7; padding: 8px 10px; }
-.org-tree-row:hover { border-radius: 10px; background: #f1f7fd; }
+.org-tree-row { display: flex; min-height: 68px; align-items: center; gap: 10px; margin: 8px 0; border: 1px solid #dbe7f3; border-radius: 16px; background: #fff; padding: 11px 14px; box-shadow: 0 5px 14px rgb(15 49 91 / 5%); }
+.org-tree-row:hover { border-color: #a9c9e8; background: #f8fbff; box-shadow: 0 8px 18px rgb(15 49 91 / 9%); }
 .org-tree-toggle { display: grid; width: 26px; height: 26px; flex: 0 0 26px; place-items: center; border: 1px solid #c9d8e8; border-radius: 8px; background: #fff; color: #174a86; font-size: 16px; font-weight: 900; }
-.org-tree-icon { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 9px; background: #eaf2fb; color: #174a86; font-size: 11px; }
+.org-tree-icon { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 10px; background: #eaf2fb; color: #174a86; font-size: 11px; }
 .org-tree-row strong { display: block; overflow: hidden; color: #163e70; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .org-tree-row span:not(.org-tree-icon):not(.org-tree-status) { display: block; color: #7b8ba0; font-size: 10px; }
 .org-tree-status { border-radius: 999px; background: #ecfdf3; padding: 4px 9px; color: #087443; font-size: 10px; font-weight: 800; }
