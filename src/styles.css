@@ -27,6 +27,14 @@ body {
   margin: 0;
 }
 
+@media print {
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .report-print-area, .report-print-area * { visibility: visible; }
+  .report-print-area { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
+  .report-print-area table { font-size: 9px; }
+}
+
 .auth-brand-panel {
   background:
     radial-gradient(circle at 84% 18%, rgb(40 115 202 / 32%), transparent 32%),
