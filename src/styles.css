@@ -70,6 +70,11 @@ body {
 .dashboard-content table thead th { letter-spacing: .1em; }
 .dashboard-content table tbody tr { transition: background .15s ease; }
 .dashboard-content table tbody tr:hover { background: #f4f8fc; }
+.dashboard-content table td button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; border: 1px solid #d7e1ec; border-radius: 9px; background: #fff; padding: 0 11px; font-size: 11px; font-weight: 800; transition: all .15s ease; }
+.dashboard-content table td button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgb(15 49 91 / 12%); }
+.dashboard-content table td button.text-emerald-700 { border-color: #a7e3c5; background: #ecfdf3; color: #087443; }
+.dashboard-content table td button.text-red-700 { border-color: #fecaca; background: #fff1f2; color: #b42318; }
+.dashboard-content table td button.text-\[\#1e4f97\] { border-color: #b9d4f4; background: #edf5ff; color: #174a86; }
 .dashboard-content > div > section,
 .dashboard-content > div > .rounded-2xl { border-color: #dce7f2; }
 
