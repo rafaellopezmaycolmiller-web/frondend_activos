@@ -57,6 +57,22 @@ body {
 .report-footer { margin-top: 18px; border-top: 1px solid #dbe7f3; padding-top: 10px; color: #64748b; font-size: 10px; text-align: center; }
 @media (max-width: 700px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .report-date { display: none; } }
 
+/* Lenguaje visual común para los procesos operativos */
+.dashboard-content form { border-radius: 18px !important; box-shadow: 0 8px 24px rgb(15 49 91 / 6%); }
+.dashboard-content form input,
+.dashboard-content form select,
+.dashboard-content form textarea { min-height: 42px; border-color: #d7e1ec; border-radius: 11px; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.dashboard-content form input:focus,
+.dashboard-content form select:focus,
+.dashboard-content form textarea:focus { border-color: #2d6bb5; background: #fff; box-shadow: 0 0 0 4px rgb(45 107 181 / 12%); outline: 0; }
+.dashboard-content form button:not(:disabled) { transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.dashboard-content form button:not(:disabled):hover { filter: brightness(1.05); box-shadow: 0 5px 12px rgb(23 74 134 / 18%); transform: translateY(-1px); }
+.dashboard-content table thead th { letter-spacing: .1em; }
+.dashboard-content table tbody tr { transition: background .15s ease; }
+.dashboard-content table tbody tr:hover { background: #f4f8fc; }
+.dashboard-content > div > section,
+.dashboard-content > div > .rounded-2xl { border-color: #dce7f2; }
+
 .auth-brand-panel {
   background:
     radial-gradient(circle at 84% 18%, rgb(40 115 202 / 32%), transparent 32%),
