@@ -1353,13 +1353,13 @@ function ReportsContentIntegrated({ initial, canExport, areas: areaOptions, cate
 }
 
 const reportLabels: Record<string, string> = { id: 'Identificador', asset_id: 'Activo', asset_code: 'Código patrimonial', inventory_code: 'Código de inventario', asset_type: 'Tipo de activo', category: 'Categoría', status: 'Estado', area: 'Área', area_name: 'Área', location: 'Ubicación', location_name: 'Ubicación', responsible_name: 'Responsable', responsible_document: 'DNI del responsable', user: 'Usuario', user_name: 'Usuario', reason: 'Motivo', cause: 'Causal', notes: 'Observaciones', requested_at: 'Fecha de solicitud', started_at: 'Fecha de inicio', ended_at: 'Fecha de término', created_at: 'Fecha de registro', updated_at: 'Última actualización', generated_at: 'Fecha de generación', result: 'Resultado', difference_type: 'Tipo de diferencia', source_file_name: 'Archivo fuente' }
-const reportValueLabels: Record<string, string> = { pending: 'Pendiente', approved: 'Aprobado', rejected: 'Rechazado', received: 'Recibido', planned: 'Planificada', in_progress: 'En curso', closed: 'Cerrada', found: 'Encontrado', not_found: 'No encontrado', location_mismatch: 'Ubicación diferente', active: 'Vigente', ended: 'Terminada', requested: 'Solicitada', assigned: 'Responsable asignado', evaluated: 'Evaluada', reviewed: 'Revisada', pending_authority: 'Pendiente de autoridad', under_review: 'En revisión', resolved: 'Resuelta', true: 'Sí', false: 'No' }
-function reportHeaderLabel(value: string): string { return reportLabels[value] ?? value.replaceAll('_', ' ') }
+const reportValueLabels: Record<string, string> = { pending: 'Pendiente', approved: 'Aprobado', rejected: 'Rechazado', received: 'Recibido', planned: 'Planificada', in_progress: 'En curso', closed: 'Cerrada', found: 'Encontrado', not_found: 'No encontrado', location_mismatch: 'Ubicación diferente', active: 'Vigente', ended: 'Terminada', requested: 'Solicitada', assigned: 'Responsable asignado', evaluated: 'Evaluada', reviewed: 'Revisada', pending_authority: 'Pendiente de autoridad', under_review: 'En revisión', resolved: 'Resuelta', true: 'Sí', false: 'No', operative: 'Operativo', operational: 'Operativo', maintenance: 'En mantenimiento', in_maintenance: 'En mantenimiento', proposed_disposal: 'Baja en evaluación', disposed: 'Dado de baja', baja: 'Dado de baja', yes: 'Sí', no: 'No', open: 'Abierto', closed_by_user: 'Cerrado' }
+function reportHeaderLabel(value: string): string { return reportLabels[value] ?? reportLabels[value.replace(/[A-Z]/g, (letter) => '_' + letter.toLowerCase())] ?? value.replaceAll('_', ' ') }
 function formatReportValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'object' && !Array.isArray(value)) return Object.entries(value as Record<string, unknown>).map(([key, item]) => `${reportHeaderLabel(key)}: ${formatReportValue(item)}`).join(' · ')
   const text = String(value)
-  return reportValueLabels[text] ?? text
+  return reportValueLabels[text] ?? reportValueLabels[text.toLowerCase()] ?? text
 }
 
 function DataTable({ headers, children }: { readonly headers: readonly string[]; readonly children: ReactNode }) {
@@ -1367,7 +1367,7 @@ function DataTable({ headers, children }: { readonly headers: readonly string[];
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full text-left text-sm">
         <thead className="border-b border-slate-200 bg-slate-50">
-          <tr>{headers.map((header) => <th className="whitespace-nowrap px-3 py-2.5 text-[10px] font-black tracking-[0.08em] text-slate-500" key={header}>{header.toUpperCase()}</th>)}</tr>
+          <tr>{headers.map((header) => <th className="whitespace-nowrap px-3 py-2.5 text-[10px] font-black tracking-[0.08em] text-slate-500" key={header}>{reportHeaderLabel(header).toUpperCase()}</th>)}</tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
