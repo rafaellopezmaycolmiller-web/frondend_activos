@@ -1442,10 +1442,11 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
       if (section === 'evaluations') { const [e, a] = await Promise.all([technicalEvaluations(), assets(1)]); setEvaluationRecords(e); setAssetRecords(a.data); setUserRecords(user.permissions.includes('users.view') ? await users() : []) }
       if (section === 'disposals') { const [d, a, e] = await Promise.all([disposalRequests(), assets(1), technicalEvaluations()]); setDisposalRecords(d); setAssetRecords(a.data); setEvaluationRecords(e) }
       if (section === 'reports') {
-        const [nextReport, nextAreas, nextCategories] = await Promise.all([reports('assets'), areas(), assetCategories()])
+        const [nextReport, nextAreas, nextCategories, nextStatuses] = await Promise.all([reports('assets'), areas(), assetCategories(), assetStatuses()])
         setReportResult(nextReport)
         setAreaRecords(nextAreas)
         setAssetCategoryRecords(nextCategories)
+        setAssetStatusRecords(nextStatuses)
       }
     } catch (caught) {
       setError(errorMessage(caught))
