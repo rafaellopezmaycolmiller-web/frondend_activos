@@ -314,8 +314,9 @@ export async function assetCustodianships(assetId: number): Promise<readonly Cus
   return response.data
 }
 
-export async function custodianshipCandidates(assetId: number): Promise<readonly User[]> {
-  const response = await request<{ readonly data: readonly User[] }>('/api/v1/assets/' + assetId + '/custodianship-candidates')
+export async function custodianshipCandidates(assetId: number, areaId?: number): Promise<readonly User[]> {
+  const query = areaId === undefined ? '' : `?area_id=${areaId}`
+  const response = await request<{ readonly data: readonly User[] }>('/api/v1/assets/' + assetId + '/custodianship-candidates' + query)
   return response.data
 }
 

@@ -1070,13 +1070,13 @@ function AssetDetails({ record, areas, locations, canAssign, onClose, onEdit }: 
     try {
       const history = await assetCustodianships(record.id)
       setCustodianships(history)
-      if (canAssign) setCandidates(await custodianshipCandidates(record.id))
+      if (canAssign) setCandidates(await custodianshipCandidates(record.id, Number(newAreaId)))
     } catch (caught) {
       setCustodyMessage(caught instanceof ApiError ? caught.message : 'No se pudo cargar la custodia.')
     } finally {
       setLoadingCustody(false)
     }
-  }, [canAssign, record.id])
+  }, [canAssign, newAreaId, record.id])
 
   useEffect(() => { void loadCustody() }, [loadCustody])
 
