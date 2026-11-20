@@ -319,10 +319,10 @@ export async function custodianshipCandidates(assetId: number): Promise<readonly
   return response.data
 }
 
-export async function assignCustodian(assetId: number, userId: number, notes: string): Promise<Custodianship> {
+export async function assignCustodian(assetId: number, input: { user_id?: number | null; area_id: number; location_id?: number | null; responsible_name?: string | null; responsible_document?: string | null; notes: string }): Promise<Custodianship> {
   const response = await request<ResourceResponse<Custodianship>>('/api/v1/assets/' + assetId + '/custodianships', {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId, notes: notes.trim() === '' ? null : notes.trim() }),
+    body: JSON.stringify({ ...input, notes: input.notes.trim() === '' ? null : input.notes.trim() }),
   })
   return response.data
 }
