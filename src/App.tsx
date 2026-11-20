@@ -162,6 +162,10 @@ export function navigationFor(user: Pick<User, 'permissions'>): readonly Navigat
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.status === 403) {
+      return 'No tiene permisos para realizar esta acción.'
+    }
+
     const firstValidationMessage = Object.values(error.errors)[0]?.[0]
 
     return firstValidationMessage ?? error.message
@@ -1384,7 +1388,7 @@ function DataTable({ headers, children }: { readonly headers: readonly string[];
   )
 }
 
-function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: User; readonly initialAssetCode: string | null; readonly onLogout: () => void }) {
+export function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: User; readonly initialAssetCode: string | null; readonly onLogout: () => void }) {
   const items = useMemo(() => navigationFor(user), [user])
   const sectionStorageKey = `mdm-active-section:${user.id}`
   const [section, setSection] = useState<SectionKey>(() => {
@@ -1429,7 +1433,11 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
         setAssetRecords(nextAssets.data); setAssetPagination(nextAssets.meta); setAreaRecords(nextAreas); setAssetCategoryRecords(nextCategories); setAssetStatusRecords(nextStatuses); setAssetLocationRecords(nextLocations); setUserRecords(nextUsers); setMetrics(nextMetrics)
       }
       if (section === 'users') {
-        const [nextUsers, nextAreas, nextRoles] = await Promise.all([users(), areas(), roles()])
+        const [nextUsers, nextAreas, nextRoles] = await Promise.all([
+          users(),
+          user.permissions.includes('areas.view') ? areas() : Promise.resolve([]),
+          user.permissions.includes('roles.view') ? roles() : Promise.resolve([]),
+        ])
         setUserRecords(nextUsers)
         setAreaRecords(nextAreas)
         setRoleRecords(nextRoles)

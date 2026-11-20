@@ -1,0 +1,20 @@
+{
+    admin off
+}
+
+:{$PORT:8080} {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy https://backendactivos-production.up.railway.app {
+            header_up Host backendactivos-production.up.railway.app
+        }
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
+
