@@ -1095,15 +1095,6 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
   const isTechnologyArea = user.area?.code === 'TI'
 
   useEffect(() => {
-    if (initialAssetCode !== null || editorOpen || detailsOpen) return
-    try {
-      if (localStorage.getItem('mdm-asset-editor-draft') !== null) setEditorOpen(true)
-    } catch {
-      // El almacenamiento local puede estar bloqueado por el navegador.
-    }
-  }, [])
-
-  useEffect(() => {
     if (!isTechnologyArea) return
     void assets(1, '', false, 'MANTENIMIENTO').then((page) => setMaintenanceRecords(page.data)).catch(() => setMaintenanceRecords([]))
   }, [isTechnologyArea, records])
