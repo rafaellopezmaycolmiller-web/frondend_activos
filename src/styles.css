@@ -74,6 +74,7 @@ body {
 .dashboard-content table thead th { letter-spacing: .1em; }
 .dashboard-content table tbody tr { transition: background .15s ease; }
 .dashboard-content table tbody tr:hover { background: #f4f8fc; }
+.dashboard-content table td span.rounded-full { display: inline-block; min-width: 118px; padding-inline: 10px; text-align: center; white-space: nowrap; }
 .dashboard-content table th,
 .dashboard-content table td { vertical-align: top; }
 .dashboard-content table td button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; border: 1px solid #d7e1ec; border-radius: 9px; background: #fff; padding: 0 11px; font-size: 11px; font-weight: 800; transition: all .15s ease; }
