@@ -5,17 +5,17 @@ import type { Area, Asset, AssetCategory, AssetLocation, AssetStatus } from './t
 
 export const ASSET_TYPES = ['Laptop', 'Computadora de escritorio', 'Impresora', 'Monitor', 'Escáner', 'Proyector', 'Servidor', 'Switch de red', 'UPS', 'Lector de códigos', 'Tablet', 'Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'] as const
 const technicalFields: Record<string, readonly [string, string][]> = {
-  Laptop: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo']],
-  'Computadora de escritorio': [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['os', 'Sistema operativo']],
-  Servidor: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Capacidad de almacenamiento'], ['os', 'Sistema operativo']],
-  'Switch de red': [['ports', 'Cantidad de puertos'], ['speed', 'Velocidad de puertos'], ['power', 'PoE / alimentación']],
-  UPS: [['capacity', 'Capacidad (VA/W)'], ['autonomy', 'Autonomía de batería'], ['outlets', 'Número de salidas']],
-  Impresora: [['technology', 'Tecnología'], ['speed', 'Velocidad de impresión'], ['resolution', 'Resolución'], ['color', 'Color o monocromática']],
-  Monitor: [['screenSize', 'Tamaño de pantalla'], ['resolution', 'Resolución'], ['ports', 'Puertos de conexión']],
-  Escáner: [['speed', 'Velocidad de escaneo'], ['resolution', 'Resolución'], ['size', 'Tamaño máximo']],
-  Proyector: [['lumens', 'Brillo (lúmenes)'], ['resolution', 'Resolución'], ['technology', 'Tecnología']],
-  Tablet: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo']],
-  'Lector de códigos': [['technology', 'Tecnología de lectura'], ['connection', 'Conectividad']],
+  Laptop: [['processor', 'Procesador'], ['generation', 'Generación'], ['ram', 'Memoria RAM'], ['ramType', 'Tipo de RAM'], ['storage', 'Almacenamiento'], ['storageType', 'Tipo de disco'], ['gpu', 'Tarjeta gráfica'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo'], ['connection', 'Conectividad']],
+  'Computadora de escritorio': [['processor', 'Procesador'], ['generation', 'Generación'], ['ram', 'Memoria RAM'], ['ramType', 'Tipo de RAM'], ['storage', 'Almacenamiento'], ['storageType', 'Tipo de disco'], ['gpu', 'Tarjeta gráfica'], ['os', 'Sistema operativo'], ['connection', 'Conectividad']],
+  Servidor: [['processor', 'Procesador'], ['cores', 'Núcleos'], ['ram', 'Memoria RAM total'], ['storage', 'Capacidad de almacenamiento'], ['storageType', 'Tipo de disco'], ['raid', 'Configuración RAID'], ['os', 'Sistema operativo'], ['rack', 'Ubicación en rack']],
+  'Switch de red': [['ports', 'Cantidad de puertos'], ['speed', 'Velocidad de puertos'], ['managed', 'Administrable'], ['power', 'PoE / alimentación'], ['uplink', 'Puertos uplink'], ['rack', 'Ubicación en rack']],
+  UPS: [['capacity', 'Capacidad (VA/W)'], ['autonomy', 'Autonomía de batería'], ['outlets', 'Número de salidas'], ['battery', 'Tipo de batería'], ['topology', 'Tipo de UPS']],
+  Impresora: [['technology', 'Tecnología'], ['speed', 'Velocidad de impresión'], ['resolution', 'Resolución'], ['color', 'Color o monocromática'], ['paperSize', 'Tamaño de papel'], ['duplex', 'Impresión a doble cara'], ['connection', 'Conectividad']],
+  Monitor: [['screenSize', 'Tamaño de pantalla'], ['resolution', 'Resolución'], ['panel', 'Tipo de panel'], ['refreshRate', 'Frecuencia de actualización'], ['ports', 'Puertos de conexión']],
+  Escáner: [['speed', 'Velocidad de escaneo'], ['resolution', 'Resolución'], ['size', 'Tamaño máximo'], ['duplex', 'Escaneo a doble cara'], ['connection', 'Conectividad']],
+  Proyector: [['lumens', 'Brillo (lúmenes)'], ['resolution', 'Resolución'], ['technology', 'Tecnología'], ['connection', 'Conectividad']],
+  Tablet: [['processor', 'Procesador'], ['ram', 'Memoria RAM'], ['storage', 'Almacenamiento'], ['screenSize', 'Tamaño de pantalla'], ['os', 'Sistema operativo'], ['connection', 'Conectividad']],
+  'Lector de códigos': [['technology', 'Tecnología de lectura'], ['connection', 'Conectividad'], ['range', 'Alcance de lectura']],
 }
 
 function errorMessage(error: unknown): string {
@@ -71,7 +71,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     name: record?.name ?? '',
     assetType: record?.asset_type ?? '',
     processor: record?.specifications?.processor ?? '', ram: record?.specifications?.ram ?? '', storage: record?.specifications?.storage ?? '', screenSize: record?.specifications?.screenSize ?? '', os: record?.specifications?.os ?? '',
-    ports: record?.specifications?.ports ?? '', speed: record?.specifications?.speed ?? '', power: record?.specifications?.power ?? '', capacity: record?.specifications?.capacity ?? '', autonomy: record?.specifications?.autonomy ?? '', outlets: record?.specifications?.outlets ?? '', technology: record?.specifications?.technology ?? '', resolution: record?.specifications?.resolution ?? '', color: record?.specifications?.color ?? '', size: record?.specifications?.size ?? '', lumens: record?.specifications?.lumens ?? '', connection: record?.specifications?.connection ?? '', material: record?.specifications?.material ?? '', dimensions: record?.specifications?.dimensions ?? '',
+    ports: record?.specifications?.ports ?? '', speed: record?.specifications?.speed ?? '', power: record?.specifications?.power ?? '', capacity: record?.specifications?.capacity ?? '', autonomy: record?.specifications?.autonomy ?? '', outlets: record?.specifications?.outlets ?? '', technology: record?.specifications?.technology ?? '', resolution: record?.specifications?.resolution ?? '', color: record?.specifications?.color ?? '', size: record?.specifications?.size ?? '', lumens: record?.specifications?.lumens ?? '', connection: record?.specifications?.connection ?? '', material: record?.specifications?.material ?? '', dimensions: record?.specifications?.dimensions ?? '', condition: record?.specifications?.condition ?? '', generation: record?.specifications?.generation ?? '', ramType: record?.specifications?.ramType ?? '', storageType: record?.specifications?.storageType ?? '', gpu: record?.specifications?.gpu ?? '', cores: record?.specifications?.cores ?? '', raid: record?.specifications?.raid ?? '', rack: record?.specifications?.rack ?? '', managed: record?.specifications?.managed ?? '', uplink: record?.specifications?.uplink ?? '', battery: record?.specifications?.battery ?? '', topology: record?.specifications?.topology ?? '', paperSize: record?.specifications?.paperSize ?? '', duplex: record?.specifications?.duplex ?? '', panel: record?.specifications?.panel ?? '', refreshRate: record?.specifications?.refreshRate ?? '', range: record?.specifications?.range ?? '',
     categoryId: record?.category.id.toString() ?? '',
     statusId: record?.status.id.toString() ?? defaultStatusId,
     areaId: record?.area.id.toString() ?? '',
@@ -180,7 +180,7 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
       inventory_code: form.inventoryCode || null,
       name: form.name,
       asset_type: form.assetType,
-      specifications: Object.fromEntries(Object.entries(form).filter(([key]) => (technicalFields[form.assetType] ?? []).some(([fieldKey]) => fieldKey === key) || ['material', 'dimensions'].includes(key)).filter(([, value]) => value.trim() !== '')),
+      specifications: Object.fromEntries(Object.entries(form).filter(([key]) => (technicalFields[form.assetType] ?? []).some(([fieldKey]) => fieldKey === key) || ['material', 'dimensions', 'condition', 'color'].includes(key)).filter(([, value]) => value.trim() !== '')),
       category_id: Number(form.categoryId),
       status_id: Number(form.statusId),
       area_id: Number(form.areaId),
@@ -283,6 +283,8 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                     {['Silla', 'Escritorio', 'Mesa', 'Archivador', 'Armario', 'Estantería', 'Carretilla', 'Módulo de archivo'].includes(form.assetType) && <>
                       {field('Material', 'material', { required: false, placeholder: 'Madera, metal, plástico...' })}
                       {field('Dimensiones', 'dimensions', { required: false, placeholder: 'Ej. 120 × 60 × 75 cm' })}
+                      {field('Color', 'color', { required: false, placeholder: 'Opcional' })}
+                      {field('Estado de conservación', 'condition', { required: false, placeholder: 'Bueno, regular o malo' })}
                     </>}
                   </div>
                 </FormSection>
