@@ -691,6 +691,13 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
   const institution = records.find((record) => record.parent_id === null)
   const operationalAreas = institution === undefined ? records : records.filter((record) => record.id !== institution.id)
   const activeAreas = records.filter((record) => record.is_active).length
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set(institution ? [institution.id] : []))
+  function toggle(id: number) { setExpanded((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
+  function treeNode(record: Area, depth = 0): ReactNode {
+    const children = records.filter((child) => child.parent_id === record.id)
+    const open = expanded.has(record.id)
+    return <div className="org-tree-node" key={record.id}><div className="org-tree-row" style={{ marginLeft: `${depth * 22}px` }}><button aria-label={open ? `Contraer ${record.name}` : `Expandir ${record.name}`} className={`org-tree-toggle ${children.length === 0 ? 'invisible' : ''}`} onClick={() => toggle(record.id)} type="button">{open ? '−' : '+'}</button><span className="org-tree-icon">{depth === 0 ? '◆' : '•'}</span><div className="min-w-0 flex-1"><strong>{record.name}</strong><span>{record.code} · {children.length} unidad{children.length === 1 ? '' : 'es'} internas</span></div><span className={record.is_active ? 'org-tree-status active' : 'org-tree-status'}>{record.is_active ? 'Activa' : 'Inactiva'}</span>{canManage && <button className="org-tree-edit" onClick={() => openEditor(record)} type="button">Editar</button>}</div>{open && children.map((child) => treeNode(child, depth + 1))}</div>
+  }
 
   return (
     <div className="grid gap-6">
@@ -704,6 +711,8 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
         ].map((item) => <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={item.label}><strong className="text-2xl font-black text-[#174a86]">{item.value}</strong><h3 className="mt-1 text-sm font-black text-slate-800">{item.label}</h3><p className="mt-0.5 text-xs text-slate-400">{item.note}</p></article>)}
       </section>
 
+      <section className="org-tree-panel rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm" aria-label="Estructura organizacional"><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#174a86]">Jerarquía institucional</p><h3 className="mt-1 text-lg font-black text-[#0a2146]">Gerencias, oficinas y áreas internas</h3></div><span className="rounded-lg bg-blue-50 px-3 py-1.5 text-[10px] font-black text-[#174a86]">{operationalAreas.length} unidades</span></div>{institution ? treeNode(institution) : records.filter((record) => record.parent_id === null).map((record) => treeNode(record))}</section>
+
       {institution && (
         <article className="relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#0a2146] to-[#174a86] p-6 text-white shadow-lg shadow-blue-950/10">
           <span aria-hidden="true" className="absolute -right-12 -top-16 size-48 rounded-full border-[28px] border-white/[0.04]" />
@@ -714,7 +723,7 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
         </article>
       )}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Áreas operativas">
+      <section className="hidden grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Áreas operativas">
         {operationalAreas.map((record) => (
           <article className="group flex min-h-64 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,35,65,0.05)] transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg" key={record.id}>
             <div className="flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-xl bg-[#eaf2fb] text-[#174a86]"><Icon><path d="M4 21V8l8-5 8 5v13M2 21h20M8 12h3M13 12h3M8 16h3M13 16h3" /></Icon></span><div className="flex items-center gap-2"><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-500">{record.code}</span><span className={`size-2 rounded-full ${record.is_active ? 'bg-emerald-400' : 'bg-red-400'}`} title={record.is_active ? 'Área activa' : 'Área inactiva'} /></div></div>
