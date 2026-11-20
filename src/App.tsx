@@ -1399,7 +1399,12 @@ function DashboardShell({ user, initialAssetCode, onLogout }: { readonly user: U
       if (section === 'reconciliation') setReconciliationRecords(await reconciliations())
       if (section === 'evaluations') { const [e, a] = await Promise.all([technicalEvaluations(), assets(1)]); setEvaluationRecords(e); setAssetRecords(a.data); setUserRecords(user.permissions.includes('users.view') ? await users() : []) }
       if (section === 'disposals') { const [d, a, e] = await Promise.all([disposalRequests(), assets(1), technicalEvaluations()]); setDisposalRecords(d); setAssetRecords(a.data); setEvaluationRecords(e) }
-      if (section === 'reports') setReportResult(await reports('assets'))
+      if (section === 'reports') {
+        const [nextReport, nextAreas, nextCategories] = await Promise.all([reports('assets'), areas(), assetCategories()])
+        setReportResult(nextReport)
+        setAreaRecords(nextAreas)
+        setAssetCategoryRecords(nextCategories)
+      }
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
