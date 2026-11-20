@@ -64,6 +64,14 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
     acquisitionDate: record?.acquisition_date ?? '',
     usefulLifeYears: record?.useful_life_years?.toString() ?? '',
     description: record?.description ?? '',
+    equipmentType: record?.specifications?.equipment_type ?? '',
+    ram: record?.specifications?.ram ?? '',
+    storage: record?.specifications?.storage ?? '',
+    processor: record?.specifications?.processor ?? '',
+    screenSize: record?.specifications?.screen_size ?? '',
+    material: record?.specifications?.material ?? '',
+    dimensions: record?.specifications?.dimensions ?? '',
+    color: record?.specifications?.color ?? '',
     reason: '',
   }
   const [form, setForm] = useState(() => {
@@ -105,6 +113,9 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
   }, [file, record])
 
   const activeLocations = locations.filter((location) => location.is_active && location.area_id === Number(form.areaId))
+  const selectedCategory = categories.find((category) => category.id === Number(form.categoryId))
+  const isTechnology = selectedCategory?.code === 'TEC'
+  const isFurniture = selectedCategory?.code === 'MOB'
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({
@@ -171,6 +182,16 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
       acquisition_date: form.acquisitionDate || null,
       useful_life_years: form.usefulLifeYears ? Number(form.usefulLifeYears) : null,
       description: form.description || null,
+      specifications: Object.fromEntries(Object.entries({
+        equipment_type: form.equipmentType,
+        ram: form.ram,
+        storage: form.storage,
+        processor: form.processor,
+        screen_size: form.screenSize,
+        material: form.material,
+        dimensions: form.dimensions,
+        color: form.color,
+      }).filter(([, value]) => value.trim() !== '')),
       is_active: isActive,
       ...(record === null ? {} : { reason: form.reason }),
     }
@@ -255,8 +276,31 @@ export function AssetEditor({ record, areas, categories, statuses, locations, re
                 </label>
               </FormSection>
 
+              {(isTechnology || isFurniture) && (
+                <FormSection
+                  description={isTechnology ? 'Detalle las características técnicas del equipo para facilitar inventarios y reportes.' : 'Registre las características físicas del mueble.'}
+                  step="04"
+                  title={isTechnology ? 'Especificaciones del equipo informático' : 'Especificaciones del mobiliario'}
+                >
+                  <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6">
+                    {isTechnology && <>
+                      {field('Tipo de equipo', 'equipmentType', { placeholder: 'Laptop, escritorio, monitor...' })}
+                      {field('Memoria RAM', 'ram', { required: false, placeholder: 'Ej. 8 GB' })}
+                      {field('Almacenamiento', 'storage', { required: false, placeholder: 'Ej. SSD 512 GB' })}
+                      {field('Procesador', 'processor', { required: false, placeholder: 'Ej. Intel Core i5' })}
+                      {field('Tamaño de pantalla', 'screenSize', { required: false, placeholder: 'Ej. 15.6 pulgadas' })}
+                    </>}
+                    {isFurniture && <>
+                      {field('Material', 'material', { required: false, placeholder: 'Madera, metal, plástico...' })}
+                      {field('Dimensiones', 'dimensions', { required: false, placeholder: 'Ej. 120 × 60 × 75 cm' })}
+                      {field('Color', 'color', { required: false, placeholder: 'Opcional' })}
+                    </>}
+                  </div>
+                </FormSection>
+              )}
+
               {record !== null && (
-                <FormSection description="Este dato quedará registrado en el historial del activo." step="04" title="Control de actualización">
+                <FormSection description="Este dato quedará registrado en el historial del activo." step="05" title="Control de actualización">
                   {field('Motivo del cambio', 'reason', { placeholder: 'Explique brevemente qué información se modificó' })}
                   <label className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-4 text-sm font-bold text-slate-700"><input checked={isActive} className="size-4 accent-[#174a86]" onChange={(event) => setIsActive(event.target.checked)} type="checkbox" />Activo vigente</label>
                 </FormSection>
