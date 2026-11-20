@@ -1187,20 +1187,29 @@ function AssetsContent({ records, pagination, metrics, areas, categories, status
             </button></div>
           )}
         </div>
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-end">
-          <select aria-label="Alcance de activos" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => onScopeChange(event.target.value as 'all' | 'mine')} value={assetScope}>
-            <option value="all">Todos los activos autorizados</option>
-            <option value="mine">Registrados por mí</option>
-          </select>
-          <select aria-label="Filtrar por categoría" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
-            <option value="all">Todas las categorías</option>
-            {categories.filter((category) => category.is_active).map((category) => <option key={category.code} value={category.code}>{category.name}</option>)}
-          </select>
-          <select aria-label="Filtrar por tipo de activo" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#174a86]" onChange={(event) => setAssetTypeFilter(event.target.value)} value={assetTypeFilter}>
-            <option value="all">Todos los tipos</option>
-            {ASSET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-          <span className="whitespace-nowrap text-xs font-bold text-slate-400">{pagination.total} resultado(s)</span>
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.25fr_1.25fr_auto] lg:items-end">
+          <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+            Alcance
+            <select aria-label="Alcance de activos" className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-black normal-case tracking-normal text-[#174a86] shadow-sm outline-none transition focus:border-[#2d6bb5] focus:ring-4 focus:ring-blue-100" onChange={(event) => onScopeChange(event.target.value as 'all' | 'mine')} value={assetScope}>
+              <option value="all">Todos los activos autorizados</option>
+              <option value="mine">Registrados por mí</option>
+            </select>
+          </label>
+          <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+            Categoría general
+            <select aria-label="Filtrar por categoría" className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-black normal-case tracking-normal text-[#174a86] shadow-sm outline-none transition focus:border-[#2d6bb5] focus:ring-4 focus:ring-blue-100" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+              <option value="all">Todas las categorías</option>
+              {categories.filter((category) => category.is_active).map((category) => <option key={category.code} value={category.code}>{category.name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+            Tipo específico
+            <select aria-label="Filtrar por tipo de activo" className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-black normal-case tracking-normal text-[#174a86] shadow-sm outline-none transition focus:border-[#2d6bb5] focus:ring-4 focus:ring-blue-100" onChange={(event) => setAssetTypeFilter(event.target.value)} value={assetTypeFilter}>
+              <option value="all">Todos los tipos</option>
+              {ASSET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </label>
+          <span className="h-11 rounded-xl border border-blue-100 bg-blue-50 px-4 text-center text-xs font-black leading-[2.75rem] text-[#174a86]">{pagination.total} resultado(s)</span>
         </div>
       </section>
 
