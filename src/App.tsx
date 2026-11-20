@@ -999,7 +999,14 @@ function QrScanner({ onClose, onDetected }: { readonly onClose: () => void; read
             rawValue = image === undefined ? undefined : jsQR(image.data, image.width, image.height)?.data
           }
           if (rawValue) {
-            const value = decodeURIComponent(rawValue.split('/').pop() ?? rawValue)
+            let value = rawValue
+            try {
+              const parsed = new URL(rawValue)
+              value = parsed.searchParams.get('asset') ?? decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() ?? rawValue)
+            } catch {
+              value = decodeURIComponent(rawValue.split('/').pop() ?? rawValue).replace(/^\?asset=/, '')
+            }
+            value = value.trim()
             onDetected(value)
             return
           }
