@@ -691,6 +691,7 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
   const institution = records.find((record) => record.parent_id === null)
   const operationalAreas = institution === undefined ? records : records.filter((record) => record.id !== institution.id)
   const activeAreas = records.filter((record) => record.is_active).length
+  const topLevelUnits = institution === undefined ? records.filter((record) => record.parent_id === null) : records.filter((record) => record.parent_id === institution.id)
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set(institution ? [institution.id] : []))
   function toggle(id: number) { setExpanded((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next }) }
   function treeNode(record: Area, depth = 0): ReactNode {
@@ -711,7 +712,7 @@ function AreasContent({ records, canManage, onChanged }: { readonly records: rea
         ].map((item) => <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={item.label}><strong className="text-2xl font-black text-[#174a86]">{item.value}</strong><h3 className="mt-1 text-sm font-black text-slate-800">{item.label}</h3><p className="mt-0.5 text-xs text-slate-400">{item.note}</p></article>)}
       </section>
 
-      <section className="org-tree-panel rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm" aria-label="Estructura organizacional"><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#174a86]">Jerarquía institucional</p><h3 className="mt-1 text-lg font-black text-[#0a2146]">Gerencias, oficinas y áreas internas</h3></div><span className="rounded-lg bg-blue-50 px-3 py-1.5 text-[10px] font-black text-[#174a86]">{operationalAreas.length} unidades</span></div>{institution ? treeNode(institution) : records.filter((record) => record.parent_id === null).map((record) => treeNode(record))}</section>
+      <section className="org-tree-panel rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm" aria-label="Estructura organizacional"><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#174a86]">Organización municipal</p><h3 className="mt-1 text-lg font-black text-[#0a2146]">Unidades principales</h3><p className="mt-1 text-xs text-slate-500">Selecciona un cuadro para desplegar sus oficinas y áreas internas.</p></div><span className="rounded-lg bg-blue-50 px-3 py-1.5 text-[10px] font-black text-[#174a86]">{topLevelUnits.length} unidades principales</span></div><div className="org-top-grid">{topLevelUnits.map((record) => treeNode(record))}</div></section>
 
       {institution && (
           <article className="hidden relative overflow-hidden rounded-[22px] bg-gradient-to-r from-[#0a2146] to-[#174a86] p-6 text-white shadow-lg shadow-blue-950/10">
